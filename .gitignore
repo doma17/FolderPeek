@@ -1,0 +1,29 @@
+# macOS metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# SwiftPM / build outputs
+.build/
+.swiftpm/
+DerivedData/
+*.xcresult
+
+# Xcode user-local state
+*.xcuserstate
+*.xcuserdatad/
+*.xcscmblueprint
+FolderPeek.xcodeproj/project.xcworkspace/xcuserdata/
+FolderPeek.xcodeproj/xcuserdata/
+
+# Generated verification fixtures and runtime artifacts
+Fixtures/M0/
+Fixtures/Verification/
+
+# OMX runtime state, logs, and generated evidence
+.omx/
+
+# Local editor/runtime files
+.env
+.env.*
+*.log
