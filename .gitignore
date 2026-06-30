@@ -2,6 +2,7 @@
 .DS_Store
 .AppleDouble
 .LSOverride
+Icon?
 
 # SwiftPM / build outputs
 .build/
@@ -15,6 +16,20 @@ DerivedData/
 *.xcscmblueprint
 FolderPeek.xcodeproj/project.xcworkspace/xcuserdata/
 FolderPeek.xcodeproj/xcuserdata/
+
+# Local app/archive/signing outputs
+*.app/
+*.appex/
+*.dSYM/
+*.xcarchive/
+*.ipa
+*.pkg
+*.dmg
+*.zip
+*.tar
+*.tar.gz
+*.logarchive
+ExportOptions.plist
 
 # Generated verification fixtures and runtime artifacts
 Fixtures/M0/
