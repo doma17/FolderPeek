@@ -22,10 +22,12 @@ Pass evidence:
 - `.omx/evidence/m0/m0-feasibility-evidence-folderpeek.md`
 - `FolderPeek/QuickLookExtension/Info.plist` registers `public.folder`, `public.directory`, `public.zip-archive`, and `public.tar-archive`.
 - `FolderPeek/QuickLookExtension/PreviewProvider.swift` implements the only shipping MVP preview path: data-based `QLPreviewProvider`.
-- `Scripts/build_manual_app_bundle.sh` produces a signed local host app and executable `.appex`.
+- `Scripts/build_manual_app_bundle.sh` produces a signed local host app and executable `.appex` for the logging-free RC tester bundle.
+- `Scripts/install_local_app.sh` replaces `/Applications/FolderPeek.app`, registers the Quick Look extension, resets Quick Look, and verifies that the current local install is the active PlugInKit registration.
+- `Scripts/verify_release_candidate.sh` proves the RC bundle lacks `FolderPeekEvidence` while the separate evidence verifier bundle includes it.
 - `pluginkit -mADv -p com.apple.quicklook.preview -i com.folderpeek.app.preview` finds the extension.
-- `qlmanage -p -c public.folder`, `public.zip-archive`, and `public.tar-archive` invoke `FolderPeekPreview` for selected fixtures and emit `FolderPeekEvidence` unified logs in the local verifier-only `FOLDERPEEK_EVIDENCE` build.
-- Archive child-process listing is verified by core tests and fixture command logs; sandboxed Quick Look currently returns a designed safe error state when child `bsdtar` execution is denied.
+- `qlmanage -p -c public.folder`, `public.zip-archive`, and `public.tar-archive` invoke `FolderPeekPreview` for selected fixtures and emit `FolderPeekEvidence` unified logs only in the local verifier-only `FOLDERPEEK_EVIDENCE` build.
+- Archive listing is verified by in-process core parser tests and by sandboxed Quick Look runtime logs requiring normal zip/tar fixtures to emit `state=ready` with a positive `entries` count. Fixture scripts may use system tools only as external archive oracles.
 
 Decision: PASS. Continue Quick Look extension-first MVP; no fallback pivot.
 
@@ -57,6 +59,7 @@ Commands:
 ```sh
 ./Scripts/create_test_fixtures.sh
 ./Scripts/verify_fixtures.sh
+./Scripts/verify_release_candidate.sh
 ./Scripts/verify_quicklook_runtime.sh
 ```
 
@@ -72,18 +75,19 @@ Expected product observations:
 - Small mixed folder renders a useful recognition preview.
 - Large mixed folder is bounded to a partial sample and explicitly marked partial.
 - Empty/inaccessible states do not crash.
-- Archive and development-looking folders are listed as ordinary folder contents; no out-of-scope expansion or project intelligence is introduced.
+- Archive-containing folders list archive files as ordinary folder contents; selected zip/tar archive files render flat, read-only internal listings with no extraction. Development-looking folders remain ordinary folder previews with no project intelligence.
 
 ## Gate 4 — Final Quality Gate
 
 Required before aggregate goal completion:
 
 1. Targeted verification for all completed implementation stories.
-2. `ai-slop-cleaner` pass on changed files or no-op report.
-3. Post-cleaner verification.
-4. Independent code-review evidence with `code-reviewer` APPROVE and `architect` CLEAR.
-5. All six ultragoal stories complete.
-6. `update_goal({status: "complete"})` only after the final gate is clean.
+2. Local install refresh with `./Scripts/install_local_app.sh` when validating Finder behavior on the current machine.
+3. `ai-slop-cleaner` pass on changed files or no-op report.
+4. Post-cleaner verification.
+5. Independent code-review evidence with `code-reviewer` APPROVE and `architect` CLEAR.
+6. All six ultragoal stories complete.
+7. `update_goal({status: "complete"})` only after the final gate is clean.
 
 Known local caveats:
 

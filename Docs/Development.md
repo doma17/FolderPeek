@@ -13,7 +13,7 @@ FolderPeek has a planning-approved MVP path and a verified strict Quick Look run
 - Archive preview core and shared HTML renderer: `FolderPeek/Shared/ArchiveCore.swift` and `FolderPeek/Shared/PreviewHTMLRenderer.swift`.
 - Host menu bar management surface: `FolderPeek/Host/MenuBarController.swift` using macOS 12-compatible `NSStatusItem`.
 
-M0 decision: **PASS** via `qlmanage -p -c public.folder` and unified `FolderPeekEvidence` logs. Archive content types also invoke the same data-based provider for `public.zip-archive` and `public.tar-archive`; in the sandboxed Quick Look extension, child `/usr/bin/bsdtar` execution is currently denied, so archive previews use the designed non-crashing error state while the shell-free command adapter remains covered by core tests and fixture logs. Manual Finder Space-key smoke remains recommended before external release.
+M0 decision: **PASS** via `qlmanage -p -c public.folder` and unified `FolderPeekEvidence` logs. Archive content types also invoke the same data-based provider for `public.zip-archive` and `public.tar-archive`; normal zip/tar fixtures now render bounded, flat archive listings in the sandboxed Quick Look extension through in-process metadata parsers. System archive tools remain fixture/oracle helpers only and are not part of the shipping archive preview path. Manual Finder Space-key smoke remains recommended before external release.
 
 ## Requirements Source
 
@@ -50,21 +50,42 @@ sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -version
 ```
 
-After admin license acceptance, conventional Xcode builds are verified. The direct Xcode `swiftc` path remains the local verifier build because it enables `FOLDERPEEK_EVIDENCE` for unified-log runtime assertions:
+After admin license acceptance, conventional Xcode builds are verified. There are now two local manual bundle modes:
+
+- **Release-candidate tester bundle**: `./Scripts/build_manual_app_bundle.sh` writes `.build/manual/FolderPeek.app` without `FOLDERPEEK_EVIDENCE`. This is the bundle to copy to `/Applications/FolderPeek.app` for local testing.
+- **Runtime verifier bundle**: `FOLDERPEEK_EVIDENCE=1 FOLDERPEEK_MANUAL_BUILD_OUT=.build/manual-evidence ./Scripts/build_manual_app_bundle.sh` writes a separate evidence-enabled app for `Scripts/verify_quicklook_runtime.sh`.
+
+Install or refresh the local RC tester bundle:
+
+```sh
+./Scripts/install_local_app.sh
+```
+
+The installer builds `.build/manual/FolderPeek.app`, replaces `/Applications/FolderPeek.app`, registers the copied app with LaunchServices, registers the bundled Quick Look extension, resets Quick Look, and prints the active PlugInKit registration. A healthy local install should show one `com.folderpeek.app.preview` entry pointing at `/Applications/FolderPeek.app/Contents/PlugIns/FolderPeekPreview.appex`. If stale duplicate entries appear from `~/Applications/FolderPeek.app` or `~/Applications/FolderPeekRuntimeVerification`, unregister those `.appex` paths and reset Quick Look again.
+
+Manual equivalent:
 
 ```sh
 ./Scripts/build_manual_app_bundle.sh
-rm -rf ~/Applications/FolderPeek.app
-cp -R .build/manual/FolderPeek.app ~/Applications/FolderPeek.app
-pluginkit -r ~/Applications/FolderPeek.app
-pluginkit -a ~/Applications/FolderPeek.app/Contents/PlugIns/FolderPeekPreview.appex
+rm -rf /Applications/FolderPeek.app
+cp -R .build/manual/FolderPeek.app /Applications/FolderPeek.app
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/FolderPeek.app
+pluginkit -r /Applications/FolderPeek.app || true
+pluginkit -a /Applications/FolderPeek.app
+pluginkit -a /Applications/FolderPeek.app/Contents/PlugIns/FolderPeekPreview.appex
 qlmanage -r
 qlmanage -r cache
 pluginkit -mADv -p com.apple.quicklook.preview -i com.folderpeek.app.preview
+```
+
+Run verifier-only runtime evidence separately:
+
+```sh
+./Scripts/verify_release_candidate.sh
 ./Scripts/verify_quicklook_runtime.sh
 ```
 
-Expected proof point: unified logs from `FolderPeekPreview` include `FolderPeekEvidence provided folder=<fixture> state=<state> ...` for every fixture covered by the verifier. These evidence logs are compiled only into the manual verifier build via `FOLDERPEEK_EVIDENCE`; do not enable them for production builds because folder names and paths are user data.
+Expected proof point: unified logs from the evidence build include `FolderPeekEvidence provided folder=<fixture> state=<state> ...` for every fixture covered by the verifier. These evidence logs are compiled only when `FOLDERPEEK_EVIDENCE=1`; do not enable them for the default RC bundle because folder names and paths are user data.
 
 ## Fixture Scripts
 
@@ -91,7 +112,7 @@ Fixture groups:
 
 ## Menu Bar Smoke
 
-The host app installs a lightweight `NSStatusItem` menu bar surface on launch. It is host-only: it does not replace Finder Quick Look, does not index folders, and does not retain Quick Look preview models. Expected menu actions are Open FolderPeek, Quick Look Help, About FolderPeek, and Quit FolderPeek. `MenuBarExtra` remains deferred while the deployment target is macOS 12.0.
+The host app installs a lightweight `NSStatusItem` menu bar surface on launch and uses accessory-style app posture so the status item is the primary management affordance. It is host-only: it does not replace Finder Quick Look, does not index folders, and does not retain Quick Look models. Expected menu actions are Open FolderPeek Guide…, Quick Look Setup Check…, About FolderPeek, and Quit FolderPeek. No window is shown automatically on launch; Open FolderPeek Guide… is manual-only and contains first-use guidance. Quick Look Setup Check is the troubleshooting surface: it may open System Settings to the closest extension settings pane as a convenience, explains that FolderPeek does not require Accessibility permission, and contains privacy/contact details. `MenuBarExtra` remains deferred while the deployment target is macOS 12.0.
 
 ## Manual Finder Smoke
 

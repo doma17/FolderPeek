@@ -136,9 +136,19 @@ public struct UTTypeClassifier: TypeClassifier {
 
     public func classify(url: URL, resourceValues: URLResourceValues?) -> FolderPeekTypeGroup {
         if resourceValues?.isDirectory == true { return .folders }
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            return .folders
+        }
+
         let ext = url.pathExtension.lowercased()
         if Self.archiveExtensions.contains(ext) { return .archives }
         if Self.codeExtensions.contains(ext) { return .code }
+        if Self.imageExtensions.contains(ext) { return .images }
+        if Self.videoExtensions.contains(ext) { return .videos }
+        if Self.audioExtensions.contains(ext) { return .audio }
+        if Self.documentExtensions.contains(ext) { return .documents }
+
         guard let type = resourceValues?.contentType ?? UTType(filenameExtension: ext) else { return .other }
         if type.conforms(to: .image) { return .images }
         if type.conforms(to: .movie) { return .videos }
@@ -149,6 +159,10 @@ public struct UTTypeClassifier: TypeClassifier {
 
     private static let archiveExtensions: Set<String> = ["zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar"]
     private static let codeExtensions: Set<String> = ["swift", "js", "ts", "tsx", "jsx", "py", "rb", "go", "rs", "java", "c", "cc", "cpp", "h", "hpp", "html", "css", "json", "yaml", "yml", "toml"]
+    private static let imageExtensions: Set<String> = ["jpg", "jpeg", "png", "gif", "heic", "heif", "webp", "tiff", "tif", "bmp", "svg"]
+    private static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "avi", "mkv", "webm"]
+    private static let audioExtensions: Set<String> = ["mp3", "m4a", "aac", "wav", "aiff", "flac"]
+    private static let documentExtensions: Set<String> = ["txt", "md", "markdown", "pdf", "rtf", "doc", "docx", "pages", "key", "numbers", "csv", "tsv"]
 }
 
 public struct CandidateThumbnailProvider: ThumbnailProvider {

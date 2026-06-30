@@ -118,238 +118,210 @@ public struct FolderPeekArchiveListingResult: Equatable, Sendable {
 
 public enum FolderPeekArchiveListingError: Error, Equatable, Sendable {
     case unsupportedArchive
-    case commandUnavailable(String)
-    case timedOut
+    case unsupportedArchiveFeature(String)
     case outputLimitExceeded
     case corruptArchive(String)
-    case processFailed(exitCode: Int32, message: String)
-    case unreadableOutput
 }
 
 public protocol FolderPeekArchiveListingProvider: Sendable {
     func listEntries(in archiveURL: URL, kind: FolderPeekArchiveKind, entryLimit: Int) throws -> FolderPeekArchiveListingResult
 }
 
-public protocol FolderPeekCommandRunning: Sendable {
-    func run(_ request: FolderPeekCommandRequest) throws -> FolderPeekCommandResult
-}
+public struct FolderPeekInProcessArchiveListingProvider: FolderPeekArchiveListingProvider {
+    public let maxCentralDirectoryBytes: Int
+    public let maxPAXDataBytes: Int
 
-public struct FolderPeekCommandRequest: Equatable, Sendable {
-    public let executableURL: URL
-    public let arguments: [String]
-    public let environment: [String: String]
-    public let timeout: TimeInterval
-    public let maxOutputBytes: Int
-
-    public init(
-        executableURL: URL,
-        arguments: [String],
-        environment: [String: String],
-        timeout: TimeInterval,
-        maxOutputBytes: Int
-    ) {
-        self.executableURL = executableURL
-        self.arguments = arguments
-        self.environment = environment
-        self.timeout = timeout
-        self.maxOutputBytes = maxOutputBytes
-    }
-}
-
-public struct FolderPeekCommandResult: Equatable, Sendable {
-    public let exitCode: Int32
-    public let stdout: Data
-    public let stderr: Data
-    public let timedOut: Bool
-    public let outputLimitExceeded: Bool
-
-    public init(exitCode: Int32, stdout: Data, stderr: Data, timedOut: Bool, outputLimitExceeded: Bool) {
-        self.exitCode = exitCode
-        self.stdout = stdout
-        self.stderr = stderr
-        self.timedOut = timedOut
-        self.outputLimitExceeded = outputLimitExceeded
-    }
-}
-
-public struct FolderPeekProcessCommandRunner: FolderPeekCommandRunning {
-    public init() {}
-
-    public func run(_ request: FolderPeekCommandRequest) throws -> FolderPeekCommandResult {
-        let process = Process()
-        process.executableURL = request.executableURL
-        process.arguments = request.arguments
-        process.environment = request.environment
-
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
-
-        let stdout = LockedCommandBuffer(maxBytes: request.maxOutputBytes)
-        let stderr = LockedCommandBuffer(maxBytes: request.maxOutputBytes)
-        let exceeded = LockedFlag()
-
-        stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty { return }
-            if !stdout.append(data) {
-                exceeded.set()
-                process.terminate()
-            }
-        }
-        stderrPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty { return }
-            if !stderr.append(data) {
-                exceeded.set()
-                process.terminate()
-            }
-        }
-
-        do {
-            try process.run()
-        } catch {
-            throw FolderPeekArchiveListingError.commandUnavailable("\(request.executableURL.path): \(error.localizedDescription)")
-        }
-        let finished = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .utility).async {
-            process.waitUntilExit()
-            finished.signal()
-        }
-
-        var timedOut = false
-        if finished.wait(timeout: .now() + request.timeout) == .timedOut {
-            timedOut = true
-            process.terminate()
-            _ = finished.wait(timeout: .now() + 1)
-        }
-
-        stdoutPipe.fileHandleForReading.readabilityHandler = nil
-        stderrPipe.fileHandleForReading.readabilityHandler = nil
-        stdout.append(stdoutPipe.fileHandleForReading.readDataToEndOfFile())
-        stderr.append(stderrPipe.fileHandleForReading.readDataToEndOfFile())
-
-        return FolderPeekCommandResult(
-            exitCode: process.terminationStatus,
-            stdout: stdout.data,
-            stderr: stderr.data,
-            timedOut: timedOut,
-            outputLimitExceeded: exceeded.value || stdout.didExceedLimit || stderr.didExceedLimit
-        )
-    }
-}
-
-public struct FolderPeekBsdtarArchiveListingProvider: FolderPeekArchiveListingProvider {
-    public let bsdtarURL: URL
-    public let timeout: TimeInterval
-    public let maxOutputBytes: Int
-    public let commandRunner: FolderPeekCommandRunning
-
-    public init(
-        bsdtarURL: URL = URL(fileURLWithPath: "/usr/bin/bsdtar"),
-        timeout: TimeInterval = 5,
-        maxOutputBytes: Int = 256 * 1024,
-        commandRunner: FolderPeekCommandRunning = FolderPeekProcessCommandRunner()
-    ) {
-        self.bsdtarURL = bsdtarURL
-        self.timeout = timeout
-        self.maxOutputBytes = maxOutputBytes
-        self.commandRunner = commandRunner
+    public init(maxCentralDirectoryBytes: Int = 8 * 1024 * 1024, maxPAXDataBytes: Int = 256 * 1024) {
+        self.maxCentralDirectoryBytes = maxCentralDirectoryBytes
+        self.maxPAXDataBytes = maxPAXDataBytes
     }
 
     public func listEntries(in archiveURL: URL, kind: FolderPeekArchiveKind, entryLimit: Int) throws -> FolderPeekArchiveListingResult {
-        guard kind == .zip || kind == .tar else {
-            throw FolderPeekArchiveListingError.unsupportedArchive
+        switch kind {
+        case .zip:
+            return try FolderPeekZIPCentralDirectoryListingParser(
+                maxCentralDirectoryBytes: maxCentralDirectoryBytes
+            ).listEntries(in: archiveURL, entryLimit: entryLimit)
+        case .tar:
+            return try FolderPeekTARListingParser(
+                maxPAXDataBytes: maxPAXDataBytes
+            ).listEntries(in: archiveURL, entryLimit: entryLimit)
         }
-
-        let request = FolderPeekCommandRequest(
-            executableURL: bsdtarURL,
-            arguments: ["-tvf", archiveURL.path],
-            environment: ["LC_ALL": "C"],
-            timeout: timeout,
-            maxOutputBytes: maxOutputBytes
-        )
-        let result = try commandRunner.run(request)
-
-        if result.timedOut {
-            throw FolderPeekArchiveListingError.timedOut
-        }
-        if result.outputLimitExceeded {
-            throw FolderPeekArchiveListingError.outputLimitExceeded
-        }
-        guard result.exitCode == 0 else {
-            throw mapProcessFailure(exitCode: result.exitCode, stderr: result.stderr)
-        }
-        guard let stdout = String(data: result.stdout, encoding: .utf8) else {
-            throw FolderPeekArchiveListingError.unreadableOutput
-        }
-        return FolderPeekBsdtarListingParser().parse(stdout, entryLimit: entryLimit)
-    }
-
-    private func mapProcessFailure(exitCode: Int32, stderr: Data) -> FolderPeekArchiveListingError {
-        let message = String(data: stderr, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let lowercased = message.lowercased()
-        if lowercased.contains("unrecognized archive format")
-            || lowercased.contains("damaged")
-            || lowercased.contains("truncated")
-            || lowercased.contains("can't find end of central directory")
-            || lowercased.contains("error opening archive") {
-            return .corruptArchive(message)
-        }
-        return .processFailed(exitCode: exitCode, message: message)
     }
 }
 
-public struct FolderPeekBsdtarListingParser: Sendable {
-    public init() {}
+public struct FolderPeekZIPCentralDirectoryListingParser: Sendable {
+    private let maxEOCDSearchBytes = 22 + 65_535
+    private let maxCentralDirectoryBytes: Int
 
-    public func parse(_ output: String, entryLimit: Int) -> FolderPeekArchiveListingResult {
-        let lines = output
-            .split(whereSeparator: \.isNewline)
-            .map(String.init)
-            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        let entries = lines.prefix(entryLimit).compactMap(parseLine)
-        return FolderPeekArchiveListingResult(entries: entries, isPartial: lines.count > entryLimit)
+    public init(maxCentralDirectoryBytes: Int = 8 * 1024 * 1024) {
+        self.maxCentralDirectoryBytes = maxCentralDirectoryBytes
     }
 
-    public func parseLine(_ line: String) -> FolderPeekArchiveEntry? {
-        guard let permissions = line.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true).first,
-              let first = permissions.first else {
-            return nil
+    public func listEntries(in archiveURL: URL, entryLimit: Int) throws -> FolderPeekArchiveListingResult {
+        let fileSize = try archiveFileSize(archiveURL)
+        guard fileSize >= 22 else {
+            throw FolderPeekArchiveListingError.corruptArchive("ZIP archive is too small to contain an end-of-central-directory record.")
         }
-        let normalized = line.replacingOccurrences(of: "\t", with: " ")
-        let pattern = #"^\S+\s+\S+\s+\S+\s+\S+\s+(\d+)\s+\S+\s+\d{1,2}\s+(?:\d{2}:\d{2}|\d{4})\s+(.+)$"#
-        guard let match = normalized.range(of: pattern, options: .regularExpression) else {
-            return fallbackEntry(line: line, first: first)
+
+        let searchLength = min(Int(fileSize), maxEOCDSearchBytes)
+        let searchOffset = fileSize - UInt64(searchLength)
+        let tail = try readData(from: archiveURL, offset: searchOffset, length: searchLength)
+        guard let eocdOffsetInTail = findEOCD(in: tail) else {
+            throw FolderPeekArchiveListingError.corruptArchive("ZIP end-of-central-directory record was not found.")
         }
-        let matched = String(normalized[match])
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let regexMatch = regex.firstMatch(in: matched, range: NSRange(matched.startIndex..., in: matched)),
-              regexMatch.numberOfRanges >= 3,
-              let sizeRange = Range(regexMatch.range(at: 1), in: matched),
-              let pathRange = Range(regexMatch.range(at: 2), in: matched) else {
-            return fallbackEntry(line: line, first: first)
+        guard eocdOffsetInTail + 22 <= tail.count else {
+            throw FolderPeekArchiveListingError.corruptArchive("ZIP end-of-central-directory record is truncated.")
         }
-        let size = Int64(matched[sizeRange])
-        let path = Self.normalizedPath(String(matched[pathRange]))
-        return FolderPeekArchiveEntry(path: path, kind: kind(first: first, path: path), uncompressedSize: size, rawListingLine: line)
+
+        let eocd = tail
+        let diskNumber = eocd.littleEndianUInt16(at: eocdOffsetInTail + 4)
+        let centralDirectoryDisk = eocd.littleEndianUInt16(at: eocdOffsetInTail + 6)
+        let entriesOnDisk = eocd.littleEndianUInt16(at: eocdOffsetInTail + 8)
+        let totalEntries = eocd.littleEndianUInt16(at: eocdOffsetInTail + 10)
+        let centralDirectorySize32 = eocd.littleEndianUInt32(at: eocdOffsetInTail + 12)
+        let centralDirectoryOffset32 = eocd.littleEndianUInt32(at: eocdOffsetInTail + 16)
+        let commentLength = Int(eocd.littleEndianUInt16(at: eocdOffsetInTail + 20))
+
+        guard eocdOffsetInTail + 22 + commentLength <= tail.count else {
+            throw FolderPeekArchiveListingError.corruptArchive("ZIP end-of-central-directory comment is truncated.")
+        }
+        guard diskNumber == 0, centralDirectoryDisk == 0, entriesOnDisk == totalEntries else {
+            throw FolderPeekArchiveListingError.unsupportedArchiveFeature("Multi-disk ZIP archives are not supported.")
+        }
+        guard totalEntries != UInt16.max,
+              centralDirectorySize32 != UInt32.max,
+              centralDirectoryOffset32 != UInt32.max else {
+            throw FolderPeekArchiveListingError.unsupportedArchiveFeature("ZIP64 metadata is not supported in this preview build.")
+        }
+
+        let centralDirectorySize = UInt64(centralDirectorySize32)
+        let centralDirectoryOffset = UInt64(centralDirectoryOffset32)
+        guard centralDirectoryOffset <= fileSize,
+              centralDirectorySize <= fileSize - centralDirectoryOffset else {
+            throw FolderPeekArchiveListingError.corruptArchive("ZIP central directory points outside the archive.")
+        }
+        if centralDirectorySize > UInt64(maxCentralDirectoryBytes) {
+            throw FolderPeekArchiveListingError.outputLimitExceeded
+        }
+
+        let centralDirectory = try readData(
+            from: archiveURL,
+            offset: centralDirectoryOffset,
+            length: Int(centralDirectorySize)
+        )
+        return try parseCentralDirectory(
+            centralDirectory,
+            expectedEntries: Int(totalEntries),
+            entryLimit: entryLimit
+        )
     }
 
-    private func fallbackEntry(line: String, first: Character) -> FolderPeekArchiveEntry? {
-        guard let path = line.split(separator: " ", omittingEmptySubsequences: true).last.map(String.init) else {
-            return nil
+    public func parseCentralDirectory(_ centralDirectory: Data, expectedEntries: Int, entryLimit: Int) throws -> FolderPeekArchiveListingResult {
+        var offset = 0
+        var entries: [FolderPeekArchiveEntry] = []
+        var parsedCount = 0
+
+        while offset < centralDirectory.count && parsedCount < expectedEntries {
+            guard offset + 46 <= centralDirectory.count else {
+                throw FolderPeekArchiveListingError.corruptArchive("ZIP central directory header is truncated.")
+            }
+            guard centralDirectory.littleEndianUInt32(at: offset) == 0x0201_4b50 else {
+                throw FolderPeekArchiveListingError.corruptArchive("ZIP central directory header signature is invalid.")
+            }
+
+            let flags = centralDirectory.littleEndianUInt16(at: offset + 8)
+            let uncompressedSize32 = centralDirectory.littleEndianUInt32(at: offset + 24)
+            let fileNameLength = Int(centralDirectory.littleEndianUInt16(at: offset + 28))
+            let extraFieldLength = Int(centralDirectory.littleEndianUInt16(at: offset + 30))
+            let commentLength = Int(centralDirectory.littleEndianUInt16(at: offset + 32))
+            let externalAttributes = centralDirectory.littleEndianUInt32(at: offset + 38)
+            let nextOffset = offset + 46 + fileNameLength + extraFieldLength + commentLength
+
+            guard nextOffset <= centralDirectory.count else {
+                throw FolderPeekArchiveListingError.corruptArchive("ZIP central directory variable fields are truncated.")
+            }
+            guard Self.supports(flags: flags) else {
+                throw FolderPeekArchiveListingError.unsupportedArchiveFeature("Encrypted ZIP entries are not supported in this preview build.")
+            }
+            guard uncompressedSize32 != UInt32.max else {
+                throw FolderPeekArchiveListingError.unsupportedArchiveFeature("ZIP64 entry sizes are not supported in this preview build.")
+            }
+
+            let nameData = centralDirectory.subdata(in: (offset + 46)..<(offset + 46 + fileNameLength))
+            let path = Self.normalizedPath(Self.decodePath(nameData, flags: flags))
+            if entries.count < entryLimit, !path.isEmpty {
+                entries.append(
+                    FolderPeekArchiveEntry(
+                        path: path,
+                        kind: Self.kind(path: path, externalAttributes: externalAttributes),
+                        uncompressedSize: Int64(uncompressedSize32),
+                        rawListingLine: path
+                    )
+                )
+            }
+            parsedCount += 1
+            offset = nextOffset
         }
-        let normalizedPath = Self.normalizedPath(path)
-        return FolderPeekArchiveEntry(path: normalizedPath, kind: kind(first: first, path: normalizedPath), uncompressedSize: nil, rawListingLine: line)
+
+        guard parsedCount == expectedEntries else {
+            throw FolderPeekArchiveListingError.corruptArchive("ZIP central directory ended before all expected entries were parsed.")
+        }
+        let isPartial = expectedEntries > entries.count
+        return FolderPeekArchiveListingResult(entries: entries, isPartial: isPartial)
     }
 
-    private func kind(first: Character, path: String) -> FolderPeekArchiveEntryKind {
-        if first == "d" || path.hasSuffix("/") { return .directory }
-        if first == "l" { return .symlink }
-        if first == "-" { return .file }
-        return .other
+    private func archiveFileSize(_ archiveURL: URL) throws -> UInt64 {
+        let values = try archiveURL.resourceValues(forKeys: [.fileSizeKey])
+        if let fileSize = values.fileSize, fileSize >= 0 {
+            return UInt64(fileSize)
+        }
+        let attributes = try FileManager.default.attributesOfItem(atPath: archiveURL.path)
+        guard let size = attributes[.size] as? NSNumber else {
+            throw FolderPeekArchiveListingError.corruptArchive("ZIP archive size could not be read.")
+        }
+        return size.uint64Value
+    }
+
+    private func readData(from url: URL, offset: UInt64, length: Int) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        try handle.seek(toOffset: offset)
+        return handle.readData(ofLength: length)
+    }
+
+    private func findEOCD(in data: Data) -> Int? {
+        guard data.count >= 22 else { return nil }
+        var index = data.count - 22
+        while index >= 0 {
+            if data.littleEndianUInt32(at: index) == 0x0605_4b50 {
+                return index
+            }
+            if index == 0 { break }
+            index -= 1
+        }
+        return nil
+    }
+
+    private static func decodePath(_ data: Data, flags: UInt16) -> String {
+        let usesUTF8 = (flags & (1 << 11)) != 0
+        if usesUTF8, let value = String(data: data, encoding: .utf8) {
+            return value
+        }
+        if let value = String(data: data, encoding: .utf8) {
+            return value
+        }
+        if let value = String(data: data, encoding: .isoLatin1) {
+            return value
+        }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    private static func supports(flags: UInt16) -> Bool {
+        let encrypted = (flags & (1 << 0)) != 0
+        let strongEncrypted = (flags & (1 << 6)) != 0
+        let centralDirectoryEncrypted = (flags & (1 << 13)) != 0
+        return !encrypted && !strongEncrypted && !centralDirectoryEncrypted
     }
 
     private static func normalizedPath(_ path: String) -> String {
@@ -357,7 +329,220 @@ public struct FolderPeekBsdtarListingParser: Sendable {
         while value.hasPrefix("./") {
             value.removeFirst(2)
         }
+        while value.hasPrefix("/") {
+            value.removeFirst()
+        }
         return value
+    }
+
+    private static func kind(path: String, externalAttributes: UInt32) -> FolderPeekArchiveEntryKind {
+        if path.hasSuffix("/") { return .directory }
+        let unixMode = (externalAttributes >> 16) & 0o170000
+        if unixMode == 0o040000 { return .directory }
+        if unixMode == 0o120000 { return .symlink }
+        if unixMode == 0o100000 || unixMode == 0 { return .file }
+        return .other
+    }
+}
+
+public struct FolderPeekTARListingParser: Sendable {
+    private let blockSize = 512
+    private let maxPAXDataBytes: Int
+
+    public init(maxPAXDataBytes: Int = 256 * 1024) {
+        self.maxPAXDataBytes = maxPAXDataBytes
+    }
+
+    public func listEntries(in archiveURL: URL, entryLimit: Int) throws -> FolderPeekArchiveListingResult {
+        let handle = try FileHandle(forReadingFrom: archiveURL)
+        defer { try? handle.close() }
+
+        var position: UInt64 = 0
+        var zeroBlockCount = 0
+        var entries: [FolderPeekArchiveEntry] = []
+        var pendingPAX: [String: String] = [:]
+        var globalPAX: [String: String] = [:]
+
+        while true {
+            let header = try readExactBlock(from: handle, position: &position)
+            if header.allSatisfy({ $0 == 0 }) {
+                zeroBlockCount += 1
+                if zeroBlockCount == 2 {
+                    return FolderPeekArchiveListingResult(entries: entries, isPartial: false)
+                }
+                continue
+            }
+            zeroBlockCount = 0
+
+            guard checksumIsValid(header) else {
+                let headerOffset = position - UInt64(blockSize)
+                throw FolderPeekArchiveListingError.corruptArchive("TAR header checksum is invalid at offset \(headerOffset) for \(Self.ustarPath(header)).")
+            }
+
+            let rawSize = try Self.parseOctal(header, range: 124..<136, fieldName: "size")
+            guard rawSize >= 0 else {
+                throw FolderPeekArchiveListingError.corruptArchive("TAR entry size is negative.")
+            }
+            let typeflag = header[156]
+
+            if typeflag == Self.typeflag("x") || typeflag == Self.typeflag("g") {
+                guard rawSize <= Int64(maxPAXDataBytes) else {
+                    throw FolderPeekArchiveListingError.outputLimitExceeded
+                }
+                let paxData = try readExact(from: handle, byteCount: Int(rawSize), position: &position)
+                try skipPadding(afterPayloadSize: UInt64(rawSize), handle: handle, position: &position)
+                let parsed = Self.parsePAXRecords(paxData)
+                if typeflag == Self.typeflag("g") {
+                    globalPAX.merge(parsed) { _, new in new }
+                } else {
+                    pendingPAX = parsed
+                }
+                continue
+            }
+
+            let mergedPAX = globalPAX.merging(pendingPAX) { _, local in local }
+            pendingPAX.removeAll(keepingCapacity: true)
+            let entryPath = Self.normalizedPath(
+                mergedPAX["path"] ?? Self.ustarPath(header)
+            )
+            let size = try Self.entrySize(rawSize: rawSize, pax: mergedPAX)
+            let kind = Self.kind(typeflag: typeflag, path: entryPath)
+
+            if !entryPath.isEmpty {
+                if entries.count >= entryLimit {
+                    return FolderPeekArchiveListingResult(entries: entries, isPartial: true)
+                }
+                entries.append(
+                    FolderPeekArchiveEntry(
+                        path: entryPath,
+                        kind: kind,
+                        uncompressedSize: kind == .directory ? 0 : size,
+                        rawListingLine: entryPath
+                    )
+                )
+            }
+
+            try skipPayload(payloadSize: UInt64(size), handle: handle, position: &position)
+        }
+    }
+
+    private func readExactBlock(from handle: FileHandle, position: inout UInt64) throws -> Data {
+        let data = try readExact(from: handle, byteCount: blockSize, position: &position)
+        guard data.count == blockSize else {
+            throw FolderPeekArchiveListingError.corruptArchive("TAR header block is truncated.")
+        }
+        return data
+    }
+
+    private func readExact(from handle: FileHandle, byteCount: Int, position: inout UInt64) throws -> Data {
+        let data = handle.readData(ofLength: byteCount)
+        position += UInt64(data.count)
+        guard data.count == byteCount else {
+            throw FolderPeekArchiveListingError.corruptArchive("TAR payload is truncated.")
+        }
+        return data
+    }
+
+    private func skipPadding(afterPayloadSize payloadSize: UInt64, handle: FileHandle, position: inout UInt64) throws {
+        let remainder = payloadSize % UInt64(blockSize)
+        guard remainder != 0 else { return }
+        let padding = UInt64(blockSize) - remainder
+        try handle.seek(toOffset: position + padding)
+        position += padding
+    }
+
+    private func skipPayload(payloadSize: UInt64, handle: FileHandle, position: inout UInt64) throws {
+        let remainder = payloadSize % UInt64(blockSize)
+        let padding = remainder == 0 ? 0 : UInt64(blockSize) - remainder
+        let distance = payloadSize + padding
+        try handle.seek(toOffset: position + distance)
+        position += distance
+    }
+
+    private func checksumIsValid(_ header: Data) -> Bool {
+        guard let stored = try? Self.parseOctal(header, range: 148..<156, fieldName: "checksum") else {
+            return false
+        }
+        var sum: Int64 = 0
+        for index in 0..<header.count {
+            if (148..<156).contains(index) {
+                sum += 32
+            } else {
+                sum += Int64(header[index])
+            }
+        }
+        return stored == sum
+    }
+
+    private static func entrySize(rawSize: Int64, pax: [String: String]) throws -> Int64 {
+        guard let paxSize = pax["size"] else { return rawSize }
+        guard let size = Int64(paxSize), size >= 0 else {
+            throw FolderPeekArchiveListingError.corruptArchive("TAR PAX size is invalid.")
+        }
+        return size
+    }
+
+    private static func ustarPath(_ header: Data) -> String {
+        let name = nullTerminatedString(header, range: 0..<100)
+        let prefix = nullTerminatedString(header, range: 345..<500)
+        if prefix.isEmpty { return name }
+        if name.isEmpty { return prefix }
+        return "\(prefix)/\(name)"
+    }
+
+    private static func nullTerminatedString(_ data: Data, range: Range<Int>) -> String {
+        let bytes = data[range].prefix { $0 != 0 }
+        return String(data: Data(bytes), encoding: .utf8) ?? String(decoding: bytes, as: UTF8.self)
+    }
+
+    private static func parseOctal(_ data: Data, range: Range<Int>, fieldName: String) throws -> Int64 {
+        let raw = data[range]
+            .filter { $0 != 0 && $0 != 32 }
+        guard !raw.isEmpty else { return 0 }
+        var value: Int64 = 0
+        for byte in raw {
+            guard byte >= 48 && byte <= 55 else {
+                throw FolderPeekArchiveListingError.corruptArchive("TAR \(fieldName) field is not octal.")
+            }
+            value = (value * 8) + Int64(byte - 48)
+        }
+        return value
+    }
+
+    private static func parsePAXRecords(_ data: Data) -> [String: String] {
+        guard let text = String(data: data, encoding: .utf8) else { return [:] }
+        var result: [String: String] = [:]
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard let space = line.firstIndex(of: " ") else { continue }
+            let payload = line[line.index(after: space)...]
+            guard let equals = payload.firstIndex(of: "=") else { continue }
+            let key = String(payload[..<equals])
+            let value = String(payload[payload.index(after: equals)...])
+            result[key] = value
+        }
+        return result
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        var value = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        while value.hasPrefix("./") {
+            value.removeFirst(2)
+        }
+        while value.hasPrefix("/") {
+            value.removeFirst()
+        }
+        return value
+    }
+
+    private static func kind(typeflag: UInt8, path: String) -> FolderPeekArchiveEntryKind {
+        if typeflag == Self.typeflag("5") || path.hasSuffix("/") { return .directory }
+        if typeflag == Self.typeflag("2") { return .symlink }
+        if typeflag == 0 || typeflag == Self.typeflag("0") { return .file }
+        return .other
+    }
+
+    private static func typeflag(_ value: Character) -> UInt8 {
+        value.asciiValue ?? 0
     }
 }
 
@@ -368,7 +553,7 @@ public struct FolderPeekArchivePreviewModelBuilder: Sendable {
 
     public init(
         detector: FolderPeekArchiveTypeDetector = FolderPeekArchiveTypeDetector(),
-        listingProvider: FolderPeekArchiveListingProvider = FolderPeekBsdtarArchiveListingProvider(),
+        listingProvider: FolderPeekArchiveListingProvider = FolderPeekInProcessArchiveListingProvider(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.detector = detector
@@ -384,7 +569,7 @@ public struct FolderPeekArchivePreviewModelBuilder: Sendable {
                 state: .unsupported,
                 entries: [],
                 isPartial: false,
-                errorMessage: "FolderPeek supports zip and tar archive previews."
+                errorMessage: "FolderPeek supports zip and tar archives."
             )
         }
 
@@ -416,19 +601,13 @@ public struct FolderPeekArchivePreviewModelBuilder: Sendable {
     private func errorModel(archiveURL: URL, kind: FolderPeekArchiveKind, error: FolderPeekArchiveListingError) -> FolderPeekArchivePreviewModel {
         switch error {
         case .unsupportedArchive:
-            return model(archiveURL: archiveURL, kind: kind, state: .unsupported, entries: [], isPartial: false, errorMessage: "FolderPeek supports zip and tar archive previews.")
-        case .commandUnavailable(let path):
-            return model(archiveURL: archiveURL, kind: kind, state: .error, entries: [], isPartial: false, errorMessage: "Archive listing tool is unavailable at \(path).")
-        case .timedOut:
-            return model(archiveURL: archiveURL, kind: kind, state: .timedOut, entries: [], isPartial: false, errorMessage: "Archive listing timed out before any extraction was attempted.")
+            return model(archiveURL: archiveURL, kind: kind, state: .unsupported, entries: [], isPartial: false, errorMessage: "FolderPeek supports zip and tar archives.")
+        case .unsupportedArchiveFeature(let message):
+            return model(archiveURL: archiveURL, kind: kind, state: .unsupported, entries: [], isPartial: false, errorMessage: message)
         case .outputLimitExceeded:
             return model(archiveURL: archiveURL, kind: kind, state: .outputLimitExceeded, entries: [], isPartial: true, errorMessage: "Archive listing exceeded FolderPeek's safety cap.")
         case .corruptArchive:
-            return model(archiveURL: archiveURL, kind: kind, state: .corrupt, entries: [], isPartial: false, errorMessage: "Archive contents could not be listed because the archive appears corrupt or unsupported by bsdtar.")
-        case .processFailed(_, let message):
-            return model(archiveURL: archiveURL, kind: kind, state: .error, entries: [], isPartial: false, errorMessage: message.isEmpty ? "Archive contents could not be listed." : message)
-        case .unreadableOutput:
-            return model(archiveURL: archiveURL, kind: kind, state: .error, entries: [], isPartial: false, errorMessage: "Archive listing output could not be decoded.")
+            return model(archiveURL: archiveURL, kind: kind, state: .corrupt, entries: [], isPartial: false, errorMessage: "Archive contents could not be listed because the archive appears corrupt or uses unsupported metadata.")
         }
     }
 
@@ -452,59 +631,15 @@ public struct FolderPeekArchivePreviewModelBuilder: Sendable {
     }
 }
 
-private final class LockedCommandBuffer: @unchecked Sendable {
-    private let lock = NSLock()
-    private let maxBytes: Int
-    private var storage = Data()
-    private var exceeded = false
-
-    init(maxBytes: Int) {
-        self.maxBytes = maxBytes
+private extension Data {
+    func littleEndianUInt16(at offset: Int) -> UInt16 {
+        UInt16(self[offset]) | (UInt16(self[offset + 1]) << 8)
     }
 
-    @discardableResult
-    func append(_ data: Data) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !data.isEmpty else { return !exceeded }
-        if storage.count + data.count > maxBytes {
-            let remaining = max(0, maxBytes - storage.count)
-            if remaining > 0 {
-                storage.append(data.prefix(remaining))
-            }
-            exceeded = true
-            return false
-        }
-        storage.append(data)
-        return true
-    }
-
-    var data: Data {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
-
-    var didExceedLimit: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return exceeded
-    }
-}
-
-private final class LockedFlag: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage = false
-
-    func set() {
-        lock.lock()
-        storage = true
-        lock.unlock()
-    }
-
-    var value: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
+    func littleEndianUInt32(at offset: Int) -> UInt32 {
+        UInt32(self[offset])
+            | (UInt32(self[offset + 1]) << 8)
+            | (UInt32(self[offset + 2]) << 16)
+            | (UInt32(self[offset + 3]) << 24)
     }
 }

@@ -35,7 +35,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         let isFolder = values?.isDirectory == true || values?.contentType?.conforms(to: .folder) == true || values?.contentType?.conforms(to: .directory) == true
         RuntimePreviewLogger.log("preparePreviewOfFile url=\(url.path) isFolder=\(isFolder)")
         guard isFolder else {
-            renderMessage(title: url.lastPathComponent, message: "FolderPeek MVP only previews user-browsable folders.", state: .error)
+            renderMessage(title: url.lastPathComponent, message: "FolderPeek MVP supports user-browsable folders.", state: .error)
             RuntimePreviewLogger.log("unsupported url=\(url.path)")
             return
         }

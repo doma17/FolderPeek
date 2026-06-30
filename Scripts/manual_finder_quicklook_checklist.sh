@@ -16,15 +16,18 @@ Prerequisite: full Xcode selected and FolderPeek host app + Quick Look extension
 6. Select `archive-containing-folder` and press Space.
    - Expect zip/tar listed as archive files only, no internal tree.
 7. Select `small-archive.zip` and press Space, then `small-archive.tar` and press Space.
-   - Expect FolderPeek archive preview route. If the local Quick Look sandbox denies child `bsdtar`, expect a readable non-crashing error state that says no extraction occurred.
+   - Expect FolderPeek archive preview UI with a flat internal listing, positive entry count, and no extraction.
 8. Select `nested-unicode-archive.zip` or `.tar` and press Space.
-   - Expect the same archive preview route/error-state behavior; no tree UI and no extraction.
+   - Expect nested paths, spaces, and Unicode names to appear in the same flat archive listing; no tree UI and no extraction.
 9. Select `dev-looking-folder` and press Space.
    - Expect ordinary folder content preview, no README/package/project summary.
 10. Select `stale-refresh-folder`, preview it, change `changing.txt`, reopen preview.
    - Record whether snapshot refreshes or stale behavior appears.
 11. Launch FolderPeek and open the menu bar item.
-   - Expect Open FolderPeek, Quick Look Help, About FolderPeek, and Quit FolderPeek. Confirm there is no background indexing prompt.
+   - Expect the status item to be the primary management surface, with Open FolderPeek Guide…, Quick Look Setup Check…, About FolderPeek, and Quit FolderPeek.
+   - Confirm launching FolderPeek shows no window automatically; Open FolderPeek Guide… opens the first-use guidance manually.
+   - Confirm Quick Look Setup Check opens a separate troubleshooting window with a System Settings shortcut, privacy notes, and contact details.
+   - Confirm there is no background indexing prompt, repair action, permission prompt, or preview history surface.
 12. If external/removable storage is available, copy `small-mixed-folder` there and repeat preview.
 13. Fill `.omx/plans/m0-feasibility-evidence-template-folderpeek.md` or copy it to `.omx/evidence/m0/` with screenshots/logs.
 CHECKLIST

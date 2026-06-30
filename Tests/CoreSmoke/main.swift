@@ -22,9 +22,15 @@ func writeFile(_ name: String, in folder: URL) throws {
     try "fixture".write(to: folder.appendingPathComponent(name), atomically: true, encoding: .utf8)
 }
 
+func writePNG(_ name: String, in folder: URL) throws {
+    let base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+    let data = Data(base64Encoded: base64)!
+    try data.write(to: folder.appendingPathComponent(name), options: .atomic)
+}
+
 let mixed = try makeTemporaryFolder()
 defer { try? FileManager.default.removeItem(at: mixed) }
-try writeFile("photo.jpg", in: mixed)
+try writePNG("photo.png", in: mixed)
 try writeFile("notes.txt", in: mixed)
 try writeFile("archive.zip", in: mixed)
 try FileManager.default.createDirectory(at: mixed.appendingPathComponent("Nested"), withIntermediateDirectories: true)
@@ -37,7 +43,7 @@ require(ready.groupCounts[.images] == 1, "image classification")
 require(ready.groupCounts[.documents] == 1, "document classification")
 require(ready.groupCounts[.archives] == 1, "archive classification")
 require(ready.groupCounts[.folders] == 1, "folder classification")
-require(Set(ready.thumbnailCandidates.map(\.name)) == Set(["photo.jpg", "notes.txt"]), "thumbnail candidates should be bounded visual docs/images")
+require(Set(ready.thumbnailCandidates.map(\.name)) == Set(["photo.png", "notes.txt"]), "thumbnail candidates should be bounded visual docs/images")
 require(ready.generatedAt == fixedClock(), "snapshot generatedAt should use injected clock")
 
 let large = try makeTemporaryFolder()
@@ -74,7 +80,7 @@ require(denied.summary.contains("access was denied"), "permission error copy")
 
 let classification = try makeTemporaryFolder()
 defer { try? FileManager.default.removeItem(at: classification) }
-try writeFile("image.png", in: classification)
+try writePNG("image.png", in: classification)
 try writeFile("movie.mp4", in: classification)
 try writeFile("sound.mp3", in: classification)
 try writeFile("readme.md", in: classification)
@@ -112,101 +118,16 @@ require(archiveDetector.detect(url: URL(fileURLWithPath: "/tmp/sample.zip")) == 
 require(archiveDetector.detect(url: URL(fileURLWithPath: "/tmp/sample.tar")) == .tar, "tar archive detection by extension")
 require(archiveDetector.detect(url: URL(fileURLWithPath: "/tmp/sample.txt")) == nil, "unsupported archive detection")
 
-let bsdtarListing = """
-drwxr-xr-x  0 0      0           0 Jun 18 06:00 nested/
--rw-r--r--  0 0      0          12 Jun 18 06:00 nested/file with spaces.txt
--rw-r--r--  0 0      0           8 Jun 18 06:00 유니코드.txt
-"""
-let parsedArchive = FolderPeekBsdtarListingParser().parse(bsdtarListing, entryLimit: 2)
-require(parsedArchive.entries.count == 2, "archive parser should enforce entry cap")
-require(parsedArchive.isPartial, "archive parser should disclose partial listings")
-require(parsedArchive.entries[0].kind == .directory, "archive parser should detect directory entries")
-require(parsedArchive.entries[1].path == "nested/file with spaces.txt", "archive parser should preserve spaces in paths")
-require(parsedArchive.entries[1].uncompressedSize == 12, "archive parser should capture uncompressed size")
-let unicodeArchive = FolderPeekBsdtarListingParser().parse(bsdtarListing, entryLimit: 10)
-require(unicodeArchive.entries.map(\.path).contains("유니코드.txt"), "archive parser should preserve Unicode paths")
-
-final class FakeArchiveCommandRunner: @unchecked Sendable, FolderPeekCommandRunning {
-    private let lock = NSLock()
-    private let result: FolderPeekCommandResult
-    private var storage: [FolderPeekCommandRequest] = []
-
-    init(result: FolderPeekCommandResult) {
-        self.result = result
-    }
-
-    func run(_ request: FolderPeekCommandRequest) throws -> FolderPeekCommandResult {
-        lock.lock()
-        storage.append(request)
-        lock.unlock()
-        return result
-    }
-
-    var requests: [FolderPeekCommandRequest] {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
-}
-
-let fakeArchiveURL = URL(fileURLWithPath: "/tmp/folderpeek archive.zip")
-let fakeRunner = FakeArchiveCommandRunner(
-    result: FolderPeekCommandResult(
-        exitCode: 0,
-        stdout: Data(bsdtarListing.utf8),
-        stderr: Data(),
-        timedOut: false,
-        outputLimitExceeded: false
-    )
-)
-let fakeProvider = FolderPeekBsdtarArchiveListingProvider(commandRunner: fakeRunner)
-let fakeListing = try fakeProvider.listEntries(in: fakeArchiveURL, kind: .zip, entryLimit: 20)
-require(fakeListing.entries.count == 3, "fake command runner should parse all archive entries")
-require(fakeRunner.requests.count == 1, "archive provider should call command runner once")
-require(fakeRunner.requests[0].executableURL.path == "/usr/bin/bsdtar", "archive provider should use absolute bsdtar path")
-require(fakeRunner.requests[0].arguments == ["-tvf", fakeArchiveURL.path], "archive provider should pass shell-free bsdtar arguments without -- after -f")
-require(fakeRunner.requests[0].environment["LC_ALL"] == "C", "archive provider should force deterministic LC_ALL=C")
-
-setenv("FOLDERPEEK_AMBIENT_SHOULD_NOT_LEAK", "1", 1)
-let environmentProbe = try FolderPeekProcessCommandRunner().run(
-    FolderPeekCommandRequest(
-        executableURL: URL(fileURLWithPath: "/usr/bin/env"),
-        arguments: [],
-        environment: ["LC_ALL": "C"],
-        timeout: 2,
-        maxOutputBytes: 16 * 1024
-    )
-)
-let environmentOutput = String(data: environmentProbe.stdout, encoding: .utf8) ?? ""
-require(environmentProbe.exitCode == 0, "environment probe should run")
-require(environmentOutput.contains("LC_ALL=C"), "command runner should pass requested environment")
-require(!environmentOutput.contains("FOLDERPEEK_AMBIENT_SHOULD_NOT_LEAK"), "command runner should not leak ambient environment")
-
-let cappedRunner = FakeArchiveCommandRunner(
-    result: FolderPeekCommandResult(exitCode: 0, stdout: Data(), stderr: Data(), timedOut: false, outputLimitExceeded: true)
-)
-let cappedModel = FolderPeekArchivePreviewModelBuilder(
-    listingProvider: FolderPeekBsdtarArchiveListingProvider(commandRunner: cappedRunner),
-    now: fixedClock
-).buildPreviewModel(archiveURL: fakeArchiveURL, entryLimit: 20)
-require(cappedModel.state == .outputLimitExceeded, "archive model should map output cap overflow")
-require(cappedModel.isPartial, "archive model cap overflow should be partial")
-
-let timeoutRunner = FakeArchiveCommandRunner(
-    result: FolderPeekCommandResult(exitCode: 0, stdout: Data(), stderr: Data(), timedOut: true, outputLimitExceeded: false)
-)
-let timeoutModel = FolderPeekArchivePreviewModelBuilder(
-    listingProvider: FolderPeekBsdtarArchiveListingProvider(commandRunner: timeoutRunner),
-    now: fixedClock
-).buildPreviewModel(archiveURL: fakeArchiveURL, entryLimit: 20)
-require(timeoutModel.state == .timedOut, "archive model should map timeout deterministically")
-
 let archiveFixtureRoot = try makeTemporaryFolder()
 defer { try? FileManager.default.removeItem(at: archiveFixtureRoot) }
 let archiveSource = archiveFixtureRoot.appendingPathComponent("source")
 try FileManager.default.createDirectory(at: archiveSource.appendingPathComponent("nested"), withIntermediateDirectories: true)
 try "space".write(to: archiveSource.appendingPathComponent("nested/file with spaces.txt"), atomically: true, encoding: .utf8)
 try "unicode".write(to: archiveSource.appendingPathComponent("유니코드.txt"), atomically: true, encoding: .utf8)
+try FileManager.default.createSymbolicLink(
+    atPath: archiveSource.appendingPathComponent("link-to-space.txt").path,
+    withDestinationPath: "nested/file with spaces.txt"
+)
 let zipURL = archiveFixtureRoot.appendingPathComponent("fixture.zip")
 let tarURL = archiveFixtureRoot.appendingPathComponent("fixture.tar")
 
@@ -226,14 +147,93 @@ let realArchiveBuilder = FolderPeekArchivePreviewModelBuilder(now: fixedClock)
 let zipModel = realArchiveBuilder.buildPreviewModel(archiveURL: zipURL, entryLimit: 20)
 let tarModel = realArchiveBuilder.buildPreviewModel(archiveURL: tarURL, entryLimit: 20)
 require(zipModel.state == .ready, "real zip archive should list successfully")
-require(tarModel.state == .ready, "real tar archive should list successfully")
 require(zipModel.entries.map(\.path).contains("nested/file with spaces.txt"), "real zip listing should preserve nested path with spaces")
+require(zipModel.entries.map(\.path).contains("유니코드.txt"), "real zip listing should preserve Unicode paths")
+let partialZipModel = realArchiveBuilder.buildPreviewModel(archiveURL: zipURL, entryLimit: 1)
+require(partialZipModel.state == .partial, "real zip archive should disclose partial listing when entry-limited")
+require(partialZipModel.entries.count == 1, "zip entry cap should limit listed entries")
+require(tarModel.state == .ready, "real tar archive should list successfully")
 require(tarModel.entries.map(\.path).contains("nested/file with spaces.txt"), "real tar listing should preserve nested path with spaces")
+require(tarModel.entries.map(\.path).contains("유니코드.txt"), "real tar listing should preserve Unicode paths")
+require(tarModel.entries.contains { $0.path == "link-to-space.txt" && $0.kind == .symlink }, "real tar listing should preserve symlink metadata without following it")
+let partialTarModel = realArchiveBuilder.buildPreviewModel(archiveURL: tarURL, entryLimit: 1)
+require(partialTarModel.state == .partial, "real tar archive should disclose partial listing when entry-limited")
+require(partialTarModel.entries.count == 1, "tar entry cap should limit listed entries")
 
 let corruptURL = archiveFixtureRoot.appendingPathComponent("corrupt.zip")
 try "not an archive".write(to: corruptURL, atomically: true, encoding: .utf8)
 let corruptModel = realArchiveBuilder.buildPreviewModel(archiveURL: corruptURL, entryLimit: 20)
 require(corruptModel.state == .corrupt, "corrupt zip archive should map to corrupt state")
+let corruptTarURL = archiveFixtureRoot.appendingPathComponent("corrupt.tar")
+try "not an archive".write(to: corruptTarURL, atomically: true, encoding: .utf8)
+let corruptTarModel = realArchiveBuilder.buildPreviewModel(archiveURL: corruptTarURL, entryLimit: 20)
+require(corruptTarModel.state == .corrupt, "corrupt tar archive should map to corrupt state")
+
+var zip64SentinelCentralDirectory = Data()
+func appendLE16(_ value: UInt16, to data: inout Data) {
+    data.append(UInt8(value & 0x00ff))
+    data.append(UInt8((value >> 8) & 0x00ff))
+}
+func appendLE32(_ value: UInt32, to data: inout Data) {
+    data.append(UInt8(value & 0x000000ff))
+    data.append(UInt8((value >> 8) & 0x000000ff))
+    data.append(UInt8((value >> 16) & 0x000000ff))
+    data.append(UInt8((value >> 24) & 0x000000ff))
+}
+func zipCentralDirectoryEntry(path: String, flags: UInt16 = 1 << 11, uncompressedSize: UInt32 = 0) -> Data {
+    var data = Data()
+    let name = Data(path.utf8)
+    appendLE32(0x0201_4b50, to: &data)
+    appendLE16(20, to: &data)
+    appendLE16(20, to: &data)
+    appendLE16(flags, to: &data)
+    appendLE16(0, to: &data)
+    appendLE16(0, to: &data)
+    appendLE16(0, to: &data)
+    appendLE32(0, to: &data)
+    appendLE32(0, to: &data)
+    appendLE32(uncompressedSize, to: &data)
+    appendLE16(UInt16(name.count), to: &data)
+    appendLE16(0, to: &data)
+    appendLE16(0, to: &data)
+    appendLE16(0, to: &data)
+    appendLE16(0, to: &data)
+    appendLE32(0, to: &data)
+    appendLE32(0, to: &data)
+    data.append(name)
+    return data
+}
+zip64SentinelCentralDirectory = zipCentralDirectoryEntry(path: "big.bin", uncompressedSize: UInt32.max)
+do {
+    _ = try FolderPeekZIPCentralDirectoryListingParser().parseCentralDirectory(
+        zip64SentinelCentralDirectory,
+        expectedEntries: 1,
+        entryLimit: 20
+    )
+    require(false, "zip64 sentinel entry should be unsupported")
+} catch FolderPeekArchiveListingError.unsupportedArchiveFeature {
+    // Expected: ZIP64 policy is explicit for this story.
+}
+do {
+    _ = try FolderPeekZIPCentralDirectoryListingParser().parseCentralDirectory(
+        zipCentralDirectoryEntry(path: "secret.txt", flags: (1 << 11) | 1),
+        expectedEntries: 1,
+        entryLimit: 20
+    )
+    require(false, "encrypted zip entries should be unsupported")
+} catch FolderPeekArchiveListingError.unsupportedArchiveFeature {
+    // Expected: encrypted ZIP entries are outside the metadata-only preview support matrix.
+}
+do {
+    _ = try FolderPeekZIPCentralDirectoryListingParser().parseCentralDirectory(
+        zipCentralDirectoryEntry(path: "one.txt"),
+        expectedEntries: 2,
+        entryLimit: 20
+    )
+    require(false, "truncated zip central directory entry counts should be corrupt")
+} catch FolderPeekArchiveListingError.corruptArchive {
+    // Expected: EOCD/header count mismatch is malformed metadata, not a partial preview.
+}
 
 let renderer = FolderPeekHTMLRenderer()
 let folderHTML = renderer.folderHTML(for: ready)

@@ -25,7 +25,7 @@ final class PreviewProvider: QLPreviewProvider, QLPreviewingController {
         }
 
         RuntimePreviewEvidence.log("provided unsupported=\(url.lastPathComponent) type=\(contentType?.identifier ?? "unknown")")
-        handler(plainTextReply(title: url.lastPathComponent, text: "FolderPeek previews folders, zip archives, and tar archives."), nil)
+        handler(plainTextReply(title: url.lastPathComponent, text: "FolderPeek supports folders, zip archives, and tar archives."), nil)
     }
 
     private func isFolder(resourceValues: URLResourceValues?) -> Bool {

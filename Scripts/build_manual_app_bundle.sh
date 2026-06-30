@@ -7,11 +7,18 @@ SWIFTC="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
 SDK="$DEVELOPER_DIR/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
 ARCH="${ARCH:-$(uname -m)}"
 MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}"
-OUT="$root/.build/manual"
+mkdir -p "$root/.build/module-cache" "$root/.build/clang-cache"
+export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-$root/.build/clang-cache}"
+export SWIFT_MODULE_CACHE_PATH="${SWIFT_MODULE_CACHE_PATH:-$root/.build/module-cache}"
+OUT="${FOLDERPEEK_MANUAL_BUILD_OUT:-$root/.build/manual}"
 APP="$OUT/FolderPeek.app"
 APPEX="$APP/Contents/PlugIns/FolderPeekPreview.appex"
+EVIDENCE_DEFINE_FLAG=""
+if [ "${FOLDERPEEK_EVIDENCE:-0}" = "1" ]; then
+  EVIDENCE_DEFINE_FLAG="-D FOLDERPEEK_EVIDENCE"
+fi
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/PlugIns" "$APPEX/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/PlugIns" "$APPEX/Contents/MacOS"
 
 "$SWIFTC" \
   -target "$ARCH-apple-macosx$MACOSX_DEPLOYMENT_TARGET" \
@@ -30,7 +37,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/PlugIns" "$APPEX/Contents/MacOS"
   -sdk "$SDK" \
   -emit-executable \
   -parse-as-library \
-  -D FOLDERPEEK_EVIDENCE \
+  ${EVIDENCE_DEFINE_FLAG:+$EVIDENCE_DEFINE_FLAG} \
   -module-name FolderPeekPreview \
   -framework Cocoa \
   -framework Quartz \
@@ -45,11 +52,17 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/PlugIns" "$APPEX/Contents/MacOS"
   FolderPeek/QuickLookExtension/PreviewProvider.swift \
   -o "$APPEX/Contents/MacOS/FolderPeekPreview"
 
-python3 - <<'PY'
+if [ ! -f "Assets/AppIcon/FolderPeek.icns" ]; then
+  ./Scripts/generate_app_icon.py >/dev/null
+fi
+cp "Assets/AppIcon/FolderPeek.icns" "$APP/Contents/Resources/FolderPeek.icns"
+
+FOLDERPEEK_APP_BUNDLE="$APP" python3 - <<'PY'
 from pathlib import Path
 import plistlib
+import os
 root=Path('.').resolve()
-app=root/'.build/manual/FolderPeek.app'
+app=Path(os.environ['FOLDERPEEK_APP_BUNDLE'])
 appex=app/'Contents/PlugIns/FolderPeekPreview.appex'
 
 def write_info(src, dst, replacements, extra=None):

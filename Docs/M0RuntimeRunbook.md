@@ -26,7 +26,7 @@ Passing runtime mechanism:
   - `public.tar-archive`
 - Runtime proof: `qlmanage -p -c public.folder <fixture-folder>` launches `FolderPeekPreview` and invokes `providePreview`; `qlmanage -p -c public.zip-archive` and `qlmanage -p -c public.tar-archive` also reach `PreviewProvider`.
 
-The earlier view-controller prototype is retained as archived source only; it is **not** compiled into the passing MVP extension build and is **not** the passing M0 path in this environment. Archive listing through child `/usr/bin/bsdtar` is currently denied by the sandboxed Quick Look extension, so the runtime archive path is an invocation + safe error-state proof, while command parsing/listing is verified in core tests and fixture scripts.
+The earlier view-controller prototype is retained as archived source only; it is **not** compiled into the passing MVP extension build and is **not** the passing M0 path in this environment. Archive listing is handled by in-process zip/tar metadata parsers in the data-based Quick Look provider, so normal archive fixtures must render ready flat listings inside the sandbox. System archive tools are used only by fixture creation/oracle scripts outside the shipping preview path.
 
 ## Prerequisites
 
@@ -89,27 +89,40 @@ Build the host app and extension with the Xcode toolchain, expand plists, and si
 ./Scripts/build_manual_app_bundle.sh
 ```
 
+This produces the logging-free local RC tester app at `.build/manual/FolderPeek.app`.
+
 Install or refresh the built app:
 
 ```sh
-rm -rf ~/Applications/FolderPeek.app
-cp -R .build/manual/FolderPeek.app ~/Applications/FolderPeek.app
-pluginkit -r ~/Applications/FolderPeek.app
-pluginkit -a ~/Applications/FolderPeek.app/Contents/PlugIns/FolderPeekPreview.appex
+./Scripts/install_local_app.sh
+```
+
+A healthy local install should print exactly one `com.folderpeek.app.preview` registration pointing at `/Applications/FolderPeek.app/Contents/PlugIns/FolderPeekPreview.appex`. If old verification or `/Applications` copies remain registered, unregister their `.appex` paths and reset Quick Look before testing Finder again.
+
+Manual equivalent:
+
+```sh
+rm -rf /Applications/FolderPeek.app
+cp -R .build/manual/FolderPeek.app /Applications/FolderPeek.app
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/FolderPeek.app
+pluginkit -r /Applications/FolderPeek.app || true
+pluginkit -a /Applications/FolderPeek.app
+pluginkit -a /Applications/FolderPeek.app/Contents/PlugIns/FolderPeekPreview.appex
 qlmanage -r
 qlmanage -r cache
 pluginkit -mADv -p com.apple.quicklook.preview -i com.folderpeek.app.preview
 ```
 
-The `.appex` binary must be a Mach-O executable with `_NSExtensionMain`, not a dylib; the build script enforces this. The manual runtime verifier build also defines `FOLDERPEEK_EVIDENCE` so folder names/paths are emitted only for local evidence collection, not for the default provider typecheck/release path.
+The `.appex` binary must be a Mach-O executable with `_NSExtensionMain`, not a dylib; the build script enforces this. The default `.build/manual/FolderPeek.app` release-candidate bundle does **not** define `FOLDERPEEK_EVIDENCE`. `Scripts/verify_quicklook_runtime.sh` builds a separate `.build/manual-evidence/FolderPeek.app` with `FOLDERPEEK_EVIDENCE=1` so folder names/paths are emitted only for local evidence collection.
 
 ## Automated Runtime Verification
 
 ```sh
+./Scripts/verify_release_candidate.sh
 ./Scripts/verify_quicklook_runtime.sh
 ```
 
-The script invokes `qlmanage -p -c public.folder` for folder fixtures plus `qlmanage -p -c public.zip-archive` and `qlmanage -p -c public.tar-archive` for selected archive fixtures, captures unified logs, and requires these `FolderPeekEvidence` outcomes:
+`verify_release_candidate.sh` proves the default RC bundle has no `FolderPeekEvidence` marker while the separate evidence bundle does. `verify_quicklook_runtime.sh` invokes `qlmanage -p -c public.folder` for folder fixtures plus `qlmanage -p -c public.zip-archive` and `qlmanage -p -c public.tar-archive` for selected archive fixtures, captures unified logs, and requires these `FolderPeekEvidence` outcomes:
 
 - `small-mixed-folder`: `state=ready`
 - `large-mixed-folder`: `state=partial items=30 partial=true`
@@ -120,7 +133,7 @@ The script invokes `qlmanage -p -c public.folder` for folder fixtures plus `qlma
 - `thumbnail-failure-folder`: `state=ready`
 - `stale-refresh-folder`: `state=ready` before and after mutation
 - `permission-error-folder`: inaccessible when chmod denial is honored; otherwise the script records the volume/runtime access behavior.
-- `small-archive.zip` / `small-archive.tar`: provider invocation observed; ready listing may be replaced by a safe error state when the Quick Look sandbox denies child `bsdtar` execution.
+- `small-archive.zip` / `small-archive.tar`: `state=ready` with a positive `entries` count; archive previews are flat, read-only metadata listings with no extraction.
 
 Evidence files:
 

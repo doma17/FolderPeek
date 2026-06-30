@@ -1,12 +1,19 @@
-import SwiftUI
+import AppKit
 
 @main
-struct FolderPeekApp: App {
-    @NSApplicationDelegateAdaptor(FolderPeekAppDelegate.self) private var appDelegate
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+enum FolderPeekApplication {
+    @MainActor
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = FolderPeekAppDelegate()
+        FolderPeekApplicationDelegateRetainer.delegate = delegate
+        application.delegate = delegate
+        application.setActivationPolicy(.accessory)
+        application.run()
     }
+}
+
+@MainActor
+private enum FolderPeekApplicationDelegateRetainer {
+    static var delegate: FolderPeekAppDelegate?
 }

@@ -91,8 +91,8 @@ Fixture coverage:
 - `large-mixed-folder/` — partial/sample disclosure.
 - `visual-folder/` — thumbnail candidate cap.
 - `archive-containing-folder/` — archives as files, no expansion.
-- `small-archive.zip` — selected zip archive file for Quick Look registration and bsdtar listing.
-- `small-archive.tar` — selected tar archive file for Quick Look registration and bsdtar listing.
+- `small-archive.zip` — selected zip archive file for Quick Look registration and in-process listing.
+- `small-archive.tar` — selected tar archive file for Quick Look registration and in-process listing.
 - `nested-unicode-archive.zip` / `.tar` — nested, spaces, and Unicode path coverage.
 - `large-archive.zip` / `.tar` — listing cap/large archive fixture coverage.
 - `corrupt-archive.zip` / `.tar` — deterministic error-state fixtures.

@@ -8,8 +8,9 @@ mkdir -p .omx/evidence/m0 .omx/evidence/core .omx/evidence/archive-m0
 runtime_install_root="${FOLDERPEEK_RUNTIME_INSTALL_ROOT:-$HOME/Applications/FolderPeekRuntimeVerification}"
 runtime_marker="$runtime_install_root/.folderpeek-runtime-verifier"
 runtime_app="$runtime_install_root/FolderPeek.app"
+evidence_build_out="${FOLDERPEEK_EVIDENCE_BUILD_OUT:-$root/.build/manual-evidence}"
 ./Scripts/verify_fixtures.sh > .omx/evidence/archive-m0/fixture-verification.log 2>&1
-./Scripts/build_manual_app_bundle.sh > .omx/evidence/core/quicklook-runtime-build.log 2>&1
+FOLDERPEEK_EVIDENCE=1 FOLDERPEEK_MANUAL_BUILD_OUT="$evidence_build_out" ./Scripts/build_manual_app_bundle.sh > .omx/evidence/core/quicklook-runtime-build.log 2>&1
 while IFS= read -r registered_path; do
   case "$registered_path" in
     "$root"/*|"$HOME/Applications/FolderPeek.app"/*|"$runtime_install_root"/*)
@@ -24,7 +25,7 @@ fi
 rm -rf "$runtime_install_root"
 mkdir -p "$runtime_install_root"
 touch "$runtime_marker"
-cp -R "$root/.build/manual/FolderPeek.app" "$runtime_app"
+cp -R "$evidence_build_out/FolderPeek.app" "$runtime_app"
 pluginkit -r "$runtime_app" >/dev/null 2>&1 || true
 pluginkit -a "$runtime_app/Contents/PlugIns/FolderPeekPreview.appex" >/dev/null 2>&1 || true
 qlmanage -r >/dev/null 2>&1 || true
@@ -106,6 +107,8 @@ for folder in "${folders[@]}"; do
 done
 "$run_with_timeout" 8 ".omx/evidence/archive-m0/qlmanage-runtime-small-archive-zip.log" qlmanage -p -c public.zip-archive "$fixtures/small-archive.zip"
 "$run_with_timeout" 8 ".omx/evidence/archive-m0/qlmanage-runtime-small-archive-tar.log" qlmanage -p -c public.tar-archive "$fixtures/small-archive.tar"
+"$run_with_timeout" 8 ".omx/evidence/archive-m0/qlmanage-runtime-nested-unicode-archive-zip.log" qlmanage -p -c public.zip-archive "$fixtures/nested-unicode-archive.zip"
+"$run_with_timeout" 8 ".omx/evidence/archive-m0/qlmanage-runtime-nested-unicode-archive-tar.log" qlmanage -p -c public.tar-archive "$fixtures/nested-unicode-archive.tar"
 # Freshness: mutate stale fixture and invoke again. This modifies only generated test fixtures.
 printf 'version 2 %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$fixtures/stale-refresh-folder/changing.txt"
 "$run_with_timeout" 8 ".omx/evidence/core/qlmanage-runtime-stale-refresh-folder-v2.log" qlmanage -p -c public.folder "$fixtures/stale-refresh-folder"
@@ -120,15 +123,27 @@ require_log() {
     exit 1
   fi
 }
+require_archive_ready_entries() {
+  local archive="$1"
+  local line
+  line="$(grep -F "provided archive=$archive state=ready" .omx/evidence/core/quicklook-runtime-unified.log | tail -1 || true)"
+  if [ -z "$line" ]; then
+    echo "FAILED: missing ready archive runtime log for: $archive" >&2
+    exit 1
+  fi
+  local entries
+  entries="$(printf '%s\n' "$line" | sed -n 's/.* entries=\([0-9][0-9]*\).*/\1/p')"
+  if [ -z "$entries" ] || [ "$entries" -le 0 ]; then
+    echo "FAILED: archive runtime log for $archive must report a positive entries count: $line" >&2
+    exit 1
+  fi
+}
 require_log "provided folder=small-mixed-folder state=ready"
-require_log "provided archive=small-archive.zip state="
-require_log "provided archive=small-archive.tar state="
-if grep -F "provided archive=small-archive.zip state=ready" .omx/evidence/core/quicklook-runtime-unified.log >/dev/null \
-  && grep -F "provided archive=small-archive.tar state=ready" .omx/evidence/core/quicklook-runtime-unified.log >/dev/null; then
-  echo "archive listing ready state observed in Quick Look runtime"
-else
-  echo "archive provider invocation observed, but ready listing state was not observed; sandboxed Quick Look may deny child bsdtar execution"
-fi
+require_archive_ready_entries "small-archive.zip"
+require_archive_ready_entries "small-archive.tar"
+require_archive_ready_entries "nested-unicode-archive.zip"
+require_archive_ready_entries "nested-unicode-archive.tar"
+echo "archive listing ready state with positive entries observed in Quick Look runtime"
 require_log "provided folder=large-mixed-folder state=partial items=30 partial=true"
 require_log "provided folder=empty-folder state=empty"
 require_log "provided folder=visual-folder state=ready"
