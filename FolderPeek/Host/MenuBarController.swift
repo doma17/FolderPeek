@@ -21,7 +21,7 @@ final class FolderPeekMenuBarController: NSObject {
         guard statusItem == nil else { return }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "folder", accessibilityDescription: "FolderPeek")
+            button.image = makeStatusBarIcon()
             button.imagePosition = .imageOnly
             button.title = ""
         }
@@ -29,6 +29,18 @@ final class FolderPeekMenuBarController: NSObject {
         statusItem = item
     }
 
+
+    private func makeStatusBarIcon() -> NSImage? {
+        let icon: NSImage?
+        if let iconURL = Bundle.main.url(forResource: "FolderPeek", withExtension: "icns") {
+            icon = NSImage(contentsOf: iconURL)
+        } else {
+            icon = NSApplication.shared.applicationIconImage
+        }
+        icon?.size = NSSize(width: 18, height: 18)
+        icon?.isTemplate = false
+        return icon
+    }
     private func makeMenu() -> NSMenu {
         let menu = NSMenu(title: "FolderPeek")
 
@@ -39,6 +51,7 @@ final class FolderPeekMenuBarController: NSObject {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Open FolderPeek Guide…", action: #selector(openSetupGuide), keyEquivalent: ",", target: self))
         menu.addItem(NSMenuItem(title: "Quick Look Setup Check…", action: #selector(openQuickLookSetupCheck), keyEquivalent: "?", target: self))
+        menu.addItem(NSMenuItem(title: "Close Window", action: #selector(closeContentWindow), keyEquivalent: "w", target: self))
         menu.addItem(NSMenuItem(title: "About FolderPeek", action: #selector(showAbout), keyEquivalent: "", target: self))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit FolderPeek", action: #selector(quit), keyEquivalent: "q", target: self))
@@ -47,11 +60,11 @@ final class FolderPeekMenuBarController: NSObject {
     }
 
     @objc private func openSetupGuide() {
-        showContentWindow(title: "FolderPeek Guide", rootView: AnyView(SetupGuideView()))
+        showContentWindow(title: "FolderPeek", rootView: AnyView(ContentView(initialTab: .guide)))
     }
 
     @objc private func openQuickLookSetupCheck() {
-        showContentWindow(title: "Quick Look Setup Check", rootView: AnyView(QuickLookSetupCheckView()))
+        showContentWindow(title: "FolderPeek", rootView: AnyView(ContentView(initialTab: .setupCheck)))
     }
 
     private func showContentWindow(title: String, rootView: AnyView) {
@@ -68,17 +81,21 @@ final class FolderPeekMenuBarController: NSObject {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 680, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 620),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "FolderPeek"
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 620, height: 480)
+        window.minSize = NSSize(width: 700, height: 560)
         window.center()
         contentWindow = window
         return window
+    }
+
+    @objc private func closeContentWindow() {
+        contentWindow?.performClose(nil)
     }
 
     @objc private func showAbout() {

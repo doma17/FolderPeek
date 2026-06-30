@@ -82,8 +82,12 @@ if ! grep -F 'mailto:rovin1273@gmail.com' FolderPeek/Host/ContentView.swift >/de
   echo "FAILED: Quick Look Setup Check must include contact mailto link" >&2
   exit 1
 fi
-if ! grep -F 'struct SetupGuideView' FolderPeek/Host/ContentView.swift >/dev/null || ! grep -F 'struct QuickLookSetupCheckView' FolderPeek/Host/ContentView.swift >/dev/null; then
-  echo "FAILED: Setup Guide and Quick Look Setup Check must remain separate host surfaces" >&2
+if ! grep -F 'enum HelpTab' FolderPeek/Host/ContentView.swift >/dev/null || ! grep -F 'struct PillTabPicker' FolderPeek/Host/ContentView.swift >/dev/null; then
+  echo "FAILED: FolderPeek help window must expose Guide and Quick Look Check as tabbed surfaces" >&2
+  exit 1
+fi
+if ! grep -F 'struct GuidePanel' FolderPeek/Host/ContentView.swift >/dev/null || ! grep -F 'struct SetupCheckPanel' FolderPeek/Host/ContentView.swift >/dev/null; then
+  echo "FAILED: FolderPeek help tabs must keep guide and setup-check content separated" >&2
   exit 1
 fi
 if grep -E 'Settings \{|WindowGroup|EmptyView\(\)' FolderPeek/Host/*.swift >/dev/null; then
@@ -120,7 +124,21 @@ if ! grep -F 'Button("Open Extension Settings")' FolderPeek/Host/ContentView.swi
   echo "FAILED: Quick Look Setup Check must keep a single extension settings button" >&2
   exit 1
 fi
-if ! grep -F 'width: 680, height: 560' FolderPeek/Host/MenuBarController.swift >/dev/null; then
-  echo "FAILED: guide and setup-check windows should use the unified larger window size" >&2
+if ! grep -F 'width: 760, height: 620' FolderPeek/Host/MenuBarController.swift >/dev/null; then
+  echo "FAILED: FolderPeek help window should use the unified larger tabbed window size" >&2
+  exit 1
+fi
+if ! grep -F 'ContentView(initialTab: .guide)' FolderPeek/Host/MenuBarController.swift >/dev/null || ! grep -F 'ContentView(initialTab: .setupCheck)' FolderPeek/Host/MenuBarController.swift >/dev/null; then
+  echo "FAILED: menu actions should open the unified help window with the requested initial tab" >&2
+  exit 1
+fi
+
+# Host keyboard shortcut checks.
+if ! grep -F 'keyEquivalent: "w"' FolderPeek/Host/MenuBarController.swift >/dev/null || ! grep -F 'keyEquivalent: "q"' FolderPeek/Host/MenuBarController.swift >/dev/null; then
+  echo "FAILED: menu bar surface must expose Command-W close and Command-Q quit equivalents" >&2
+  exit 1
+fi
+if ! grep -F 'FolderPeekMainMenu.make()' FolderPeek/Host/FolderPeekApp.swift >/dev/null; then
+  echo "FAILED: host app must install an app menu so Command-W and Command-Q work from windows" >&2
   exit 1
 fi
