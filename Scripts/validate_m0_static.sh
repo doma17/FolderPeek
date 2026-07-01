@@ -134,11 +134,15 @@ if ! grep -F 'ContentView(initialTab: .guide)' FolderPeek/Host/MenuBarController
 fi
 
 # Host keyboard shortcut checks.
-if ! grep -F 'keyEquivalent: "w"' FolderPeek/Host/MenuBarController.swift >/dev/null || ! grep -F 'keyEquivalent: "q"' FolderPeek/Host/MenuBarController.swift >/dev/null; then
-  echo "FAILED: menu bar surface must expose Command-W close and Command-Q quit equivalents" >&2
+if grep -F 'NSMenuItem(title: "Close Window"' FolderPeek/Host/MenuBarController.swift >/dev/null; then
+  echo "FAILED: menu bar dropdown should not expose Close Window; Command-W belongs in the app/window menu only" >&2
   exit 1
 fi
-if ! grep -F 'FolderPeekMainMenu.make()' FolderPeek/Host/FolderPeekApp.swift >/dev/null; then
-  echo "FAILED: host app must install an app menu so Command-W and Command-Q work from windows" >&2
+if ! grep -F 'keyEquivalent: "q"' FolderPeek/Host/MenuBarController.swift >/dev/null; then
+  echo "FAILED: menu bar surface must expose Command-Q quit equivalent" >&2
+  exit 1
+fi
+if ! grep -F 'FolderPeekMainMenu.make()' FolderPeek/Host/FolderPeekApp.swift >/dev/null || ! grep -F 'keyEquivalent: "w"' FolderPeek/Host/FolderPeekApp.swift >/dev/null || ! grep -F 'keyEquivalent: "q"' FolderPeek/Host/FolderPeekApp.swift >/dev/null; then
+  echo "FAILED: host app must install an app/window menu so Command-W and Command-Q work from windows" >&2
   exit 1
 fi

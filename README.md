@@ -69,6 +69,16 @@ For manual Finder testing:
 ./Scripts/manual_finder_quicklook_checklist.sh
 ```
 
+## Distribution
+
+App Store-free distribution notes live in:
+
+```text
+Docs/Distribution.md
+```
+
+The first direct release is intended for early testers and power users until Developer ID signing and notarization are in place.
+
 ## App Store preparation
 
 Release notes and submission prep live in:
