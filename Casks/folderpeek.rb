@@ -1,6 +1,6 @@
 cask "folderpeek" do
   version "0.2"
-  sha256 "c102b3547ecded6c01c6959dc3c5babf0c5a201f0e11aafb82d26bfc6c1728a4"
+  sha256 "f3dea655e9d21cc238018249bf5c03adbada76f92bef51c392c51c8a9a93c910"
 
   url "https://github.com/doma17/FolderPeek/releases/download/v#{version}/FolderPeek-#{version}.zip",
       verified: "github.com/doma17/FolderPeek/"

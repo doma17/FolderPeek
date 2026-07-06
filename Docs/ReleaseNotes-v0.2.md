@@ -1,6 +1,6 @@
 # FolderPeek 0.2 Release Notes
 
-Release date: 2026-07-01
+Release date: 2026-07-06
 
 FolderPeek 0.2 is the first early-tester direct-distribution build. It is intended for users who are comfortable installing a macOS app outside the App Store while Developer ID signing and notarization are still pending.
 
@@ -10,7 +10,9 @@ FolderPeek 0.2 is the first early-tester direct-distribution build. It is intend
 - Flat, read-only previews for zip and tar archives without extracting them.
 - Menu bar helper with a folder-only status icon.
 - FolderPeek Guide and Quick Look Setup Check windows for first-use help and troubleshooting.
+- Liquid Glass app icon refresh with Spotlight-safe small ICNS slots.
 - App icon and menu bar icon polish based on the project design guide.
+- San Francisco typography alignment across the host UI and Quick Look preview surfaces.
 - Release packaging script with zip structure, version, extension, and checksum validation.
 - Repo-local Homebrew cask template for a future personal tap.
 
@@ -32,6 +34,7 @@ Unzip `FolderPeek-0.2.zip`, move `FolderPeek.app` to `/Applications`, launch it 
 ## Known limitations
 
 - This build may trigger Gatekeeper friction because Developer ID signing and notarization are not complete yet.
+- Spotlight may briefly show a stale icon after replacing an older local build until macOS icon caches refresh.
 - Homebrew installation is not live until the cask is copied into a personal tap and audited there.
 - Sparkle automatic updates are intentionally not included yet.
 

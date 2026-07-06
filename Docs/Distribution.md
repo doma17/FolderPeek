@@ -22,7 +22,7 @@ Until those checks pass, treat the Homebrew cask as a template and the direct-do
 - Git tag: v0.2
 - Artifact: FolderPeek-0.2.zip
 - Checksum file: SHA256SUMS.txt
-- Current SHA-256: `c102b3547ecded6c01c6959dc3c5babf0c5a201f0e11aafb82d26bfc6c1728a4`
+- Current SHA-256: `f3dea655e9d21cc238018249bf5c03adbada76f92bef51c392c51c8a9a93c910`
 
 The host app and Quick Look extension must both use:
 
