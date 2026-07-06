@@ -4,6 +4,22 @@ FolderPeek is a macOS Quick Look extension for previewing the contents of folder
 
 It is built for the Finder workflow: select a folder, `.zip`, or `.tar` file, press Space, and inspect a bounded contents preview instead of opening the item first.
 
+## Download
+
+Latest release: [FolderPeek for macOS](https://github.com/doma17/FolderPeek/releases/latest)
+
+Product page: [doma17.github.io/FolderPeek](https://doma17.github.io/FolderPeek/)
+
+FolderPeek is currently an early-tester direct distribution build. macOS Gatekeeper may require manual approval on first launch until Developer ID signing and notarization are complete.
+
+### Homebrew
+
+```sh
+brew tap doma17/folderpeek
+brew trust doma17/folderpeek
+brew install --cask folderpeek
+```
+
 ## Current scope
 
 - Folder and directory previews

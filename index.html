@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FolderPeek for macOS</title>
+  <meta name="description" content="FolderPeek is a macOS Quick Look extension for previewing folders, zip archives, and tar archives before opening them.">
+  <meta property="og:title" content="FolderPeek for macOS">
+  <meta property="og:description" content="Preview folders and archives from Finder Quick Look.">
+  <meta property="og:image" content="https://doma17.github.io/FolderPeek/Assets/AppIcon/FolderPeekAppIcon-1024.png">
+  <meta property="og:url" content="https://doma17.github.io/FolderPeek/">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f5f7;
+      --panel: rgba(255, 255, 255, 0.72);
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --line: rgba(0, 0, 0, 0.1);
+      --blue: #0071e3;
+      --blue-hover: #0077ed;
+      --code: rgba(0, 0, 0, 0.055);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000;
+        --panel: rgba(29, 29, 31, 0.72);
+        --text: #f5f5f7;
+        --muted: #a1a1a6;
+        --line: rgba(255, 255, 255, 0.15);
+        --code: rgba(255, 255, 255, 0.1);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(10, 132, 255, 0.22), transparent 34rem),
+        radial-gradient(circle at 82% 18%, rgba(255, 204, 77, 0.18), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    main { width: min(1080px, calc(100% - 40px)); margin: 0 auto; }
+    .hero {
+      min-height: 82vh;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 64px;
+      align-items: center;
+      padding: 72px 0 48px;
+    }
+    .eyebrow { color: var(--muted); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 18px; }
+    h1 { font-size: clamp(52px, 8vw, 92px); line-height: 0.96; letter-spacing: -0.06em; margin: 0 0 28px; max-width: 760px; }
+    .lead { color: var(--muted); font-size: clamp(20px, 2.5vw, 28px); line-height: 1.2; letter-spacing: -0.03em; margin: 0 0 34px; max-width: 650px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 22px;
+      border-radius: 999px;
+      background: var(--blue);
+      color: white;
+      text-decoration: none;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .button:hover { background: var(--blue-hover); }
+    .button.secondary { background: transparent; color: var(--blue); border: 1px solid color-mix(in srgb, var(--blue) 42%, transparent); }
+    .app-card {
+      justify-self: center;
+      width: min(390px, 100%);
+      padding: 34px;
+      border: 1px solid var(--line);
+      border-radius: 42px;
+      background: var(--panel);
+      backdrop-filter: blur(22px) saturate(1.6);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.18);
+      text-align: center;
+    }
+    .app-card img { width: min(245px, 78%); height: auto; display: block; margin: 0 auto 24px; border-radius: 28%; }
+    .version { color: var(--muted); font-size: 15px; margin: 0; }
+    section { padding: 52px 0; border-top: 1px solid var(--line); }
+    h2 { font-size: clamp(32px, 5vw, 54px); letter-spacing: -0.055em; line-height: 1; margin: 0 0 22px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .tile { border: 1px solid var(--line); border-radius: 26px; padding: 24px; background: var(--panel); }
+    .tile h3 { margin: 0 0 10px; font-size: 21px; letter-spacing: -0.03em; }
+    .tile p, li { color: var(--muted); font-size: 16px; line-height: 1.45; }
+    pre { overflow-x: auto; padding: 18px; border-radius: 18px; background: var(--code); border: 1px solid var(--line); }
+    code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 14px; }
+    .notice { color: var(--muted); font-size: 15px; line-height: 1.45; max-width: 760px; }
+    footer { color: var(--muted); padding: 42px 0 64px; font-size: 14px; }
+    footer a { color: inherit; }
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; padding-top: 48px; gap: 36px; }
+      .app-card { justify-self: start; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <div class="eyebrow">FolderPeek 0.3 · macOS Quick Look Extension</div>
+        <h1 id="hero-title">Preview folders before opening them.</h1>
+        <p class="lead">FolderPeek shows folder, zip, and tar contents directly from Finder Quick Look, so you can find the right material without opening every folder first.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/doma17/FolderPeek/releases/latest">Download for macOS</a>
+          <a class="button secondary" href="https://github.com/doma17/FolderPeek">View on GitHub</a>
+        </div>
+      </div>
+      <aside class="app-card" aria-label="FolderPeek app icon">
+        <img src="Assets/AppIcon/FolderPeekAppIcon-1024.png" alt="FolderPeek app icon: a glowing open folder">
+        <p class="version">Latest release: 0.3</p>
+      </aside>
+    </section>
+
+    <section>
+      <h2>What it previews</h2>
+      <div class="grid">
+        <article class="tile"><h3>Folders</h3><p>File names, sizes, modified dates, type grouping, and thumbnails when available.</p></article>
+        <article class="tile"><h3>Archives</h3><p>Flat zip and tar listings without extracting the archive to disk.</p></article>
+        <article class="tile"><h3>Finder workflow</h3><p>Select a folder or archive, press Space, and inspect the contents before opening it.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Install</h2>
+      <p class="notice">FolderPeek currently ships as an early-tester direct download. Developer ID signing and notarization are not complete yet, so macOS Gatekeeper may require manual approval on first launch.</p>
+      <pre><code>Download FolderPeek-0.3.zip from GitHub Releases.
+Unzip it.
+Move FolderPeek.app to /Applications.
+Launch FolderPeek once.
+In Finder, select a folder, .zip, or .tar file and press Space.</code></pre>
+    </section>
+
+    <section>
+      <h2>Homebrew</h2>
+      <p class="notice">Power users can install through the personal Homebrew tap.</p>
+      <pre><code>brew tap doma17/folderpeek
+brew trust doma17/folderpeek
+brew install --cask folderpeek</code></pre>
+    </section>
+
+    <footer>
+      <p>Support: <a href="mailto:rovin1273@gmail.com">rovin1273@gmail.com</a> · <a href="https://github.com/doma17/FolderPeek/releases/latest">Latest release</a></p>
+    </footer>
+  </main>
+</body>
+</html>

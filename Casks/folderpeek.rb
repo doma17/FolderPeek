@@ -2,8 +2,7 @@ cask "folderpeek" do
   version "0.3"
   sha256 "a7be42a9eadb137d0491a6b38b61e3daefa7124c7c47f02c13c11e54b4e6e0e3"
 
-  url "https://github.com/doma17/FolderPeek/releases/download/v#{version}/FolderPeek-#{version}.zip",
-      verified: "github.com/doma17/FolderPeek/"
+  url "https://github.com/doma17/FolderPeek/releases/download/v#{version}/FolderPeek-#{version}.zip"
   name "FolderPeek"
   desc "Quick Look extension for previewing folder, zip, and tar contents"
   homepage "https://github.com/doma17/FolderPeek"

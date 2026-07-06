@@ -1,20 +1,30 @@
 # Distribution
 
-FolderPeek 0.3 is prepared for App Store-free distribution through GitHub Releases first, with a personal Homebrew tap as the power-user install path.
+FolderPeek 0.3 is prepared for App Store-free distribution through GitHub Releases, GitHub Pages, and a personal Homebrew tap.
 
 This channel is intentionally early-tester oriented until Developer ID signing and notarization are in place.
 
 ## Current status
 
-The repository currently contains the local packaging script, distribution documentation, and a repo-local Homebrew cask template. It is not an operationally proven public channel until all of these external checks pass for an actual GitHub Release:
+The 0.3 direct-distribution channel is live for early testers:
 
-1. The `v0.3` release exists on GitHub with `FolderPeek-0.3.zip` and `SHA256SUMS.txt` uploaded.
-2. The release asset can be downloaded into a clean temporary directory.
+1. The `v0.3` GitHub Release exists with `FolderPeek-0.3.zip` and `SHA256SUMS.txt` uploaded.
+2. The release asset has been downloaded into a clean temporary directory.
 3. `shasum -a 256 -c SHA256SUMS.txt` passes against the downloaded asset.
-4. The personal tap contains the cask and `brew audit --cask --new folderpeek` passes from that tap context.
-5. A fresh install through the tap launches and the Quick Look extension can be enabled.
+4. The GitHub Pages product page is published from this repository.
+5. The personal Homebrew tap exists and `brew fetch --cask folderpeek` succeeds after `brew tap` and `brew trust`.
 
-Until those checks pass, treat the Homebrew cask as a template and the direct-download instructions as the intended release procedure, not as a completed public distribution channel.
+Remaining mainstream-distribution blockers are Developer ID signing/notarization, Gatekeeper verification from a freshly downloaded artifact, and official Homebrew notability/signature eligibility.
+
+## Public pages
+
+The GitHub Pages product page is served from the repository root:
+
+```text
+https://doma17.github.io/FolderPeek/
+```
+
+The page links to the latest GitHub Release and documents the Homebrew tap install path.
 
 ## Release identity
 
@@ -62,7 +72,7 @@ The script fails if the app version/build do not match 0.3/1, if the archive has
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-External release creation and upload are intentionally manual until credentials and signing are settled. Passing the local packaging script alone does not prove the published download path; the clean download and checksum verification above are required after the GitHub Release exists.
+Passing the local packaging script alone does not prove the published download path; the clean download and checksum verification above are required after each GitHub Release upload.
 
 ## Direct install instructions
 
@@ -87,32 +97,34 @@ A repo-local cask template lives at:
 Casks/folderpeek.rb
 ```
 
-This file is a template until it is copied into a personal tap and audited there. After the GitHub Release exists, create or update a personal tap repository such as:
+The published personal tap repository is:
 
 ```text
-doma17/homebrew-folderpeek
+https://github.com/doma17/homebrew-folderpeek
 ```
 
-Homebrew drops the `homebrew-` prefix in the tap command, so the expected install command after the tap exists is:
+Homebrew drops the `homebrew-` prefix in the tap command, so the install command is:
 
 ```sh
 brew tap doma17/folderpeek
+brew trust doma17/folderpeek
 brew install --cask folderpeek
 ```
 
-Validate the repo-local cask style before copying it into the tap:
+Validate the repo-local cask style before updating the tap:
 
 ```sh
 brew style Casks/folderpeek.rb
 ```
 
-After the cask is in the personal tap, validate it by cask name from the tap context:
+Validate the personal tap with style and fetch checks:
 
 ```sh
-brew audit --cask --new folderpeek
+brew style Casks/folderpeek.rb
+brew fetch --cask folderpeek
 ```
 
-Do not submit FolderPeek to the official Homebrew Cask repository until notability, signing, and Gatekeeper expectations are addressed.
+`brew audit --cask --new folderpeek` is expected to fail until Developer ID signing/notarization is complete and the GitHub repository meets Homebrew's notability requirements. Do not submit FolderPeek to the official Homebrew Cask repository until notability, signing, and Gatekeeper expectations are addressed.
 
 ## Developer ID and notarization path
 
