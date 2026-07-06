@@ -90,8 +90,25 @@
     .tile { border: 1px solid var(--line); border-radius: 26px; padding: 24px; background: var(--panel); }
     .tile h3 { margin: 0 0 10px; font-size: 21px; letter-spacing: -0.03em; }
     .tile p, li { color: var(--muted); font-size: 16px; line-height: 1.45; }
-    pre { overflow-x: auto; padding: 18px; border-radius: 18px; background: var(--code); border: 1px solid var(--line); }
+    .copy-block { position: relative; margin: 0; }
+    pre { overflow-x: auto; padding: 18px; padding-right: 112px; border-radius: 18px; background: var(--code); border: 1px solid var(--line); }
     code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 14px; }
+    .copy-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      min-height: 34px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
+      color: var(--text);
+      font: 600 13px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      cursor: pointer;
+      backdrop-filter: blur(14px) saturate(1.4);
+    }
+    .copy-button:hover { border-color: color-mix(in srgb, var(--blue) 48%, var(--line)); color: var(--blue); }
+    .copy-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--blue) 28%, transparent); outline-offset: 2px; }
     .notice { color: var(--muted); font-size: 15px; line-height: 1.45; max-width: 760px; }
     footer { color: var(--muted); padding: 42px 0 64px; font-size: 14px; }
     footer a { color: inherit; }
@@ -132,24 +149,52 @@
     <section>
       <h2>Install</h2>
       <p class="notice">FolderPeek currently ships as an early-tester direct download. Developer ID signing and notarization are not complete yet, so macOS Gatekeeper may require manual approval on first launch.</p>
-      <pre><code>Download FolderPeek-0.3.zip from GitHub Releases.
+      <div class="copy-block">
+        <button class="copy-button" type="button" data-copy-target="direct-install">Copy</button>
+        <pre><code id="direct-install">Download FolderPeek-0.3.zip from GitHub Releases.
 Unzip it.
 Move FolderPeek.app to /Applications.
 Launch FolderPeek once.
 In Finder, select a folder, .zip, or .tar file and press Space.</code></pre>
+      </div>
     </section>
 
     <section>
       <h2>Homebrew</h2>
       <p class="notice">Power users can install through the personal Homebrew tap.</p>
-      <pre><code>brew tap doma17/folderpeek
+      <div class="copy-block">
+        <button class="copy-button" type="button" data-copy-target="homebrew-install">Copy</button>
+        <pre><code id="homebrew-install">brew tap doma17/folderpeek
 brew trust doma17/folderpeek
 brew install --cask folderpeek</code></pre>
+      </div>
     </section>
 
     <footer>
       <p>Support: <a href="mailto:rovin1273@gmail.com">rovin1273@gmail.com</a> · <a href="https://github.com/doma17/FolderPeek/releases/latest">Latest release</a></p>
     </footer>
   </main>
+  <script>
+    document.querySelectorAll('[data-copy-target]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const target = document.getElementById(button.dataset.copyTarget);
+        if (!target) return;
+        const text = target.innerText;
+        try {
+          await navigator.clipboard.writeText(text);
+          const previous = button.textContent;
+          button.textContent = 'Copied';
+          window.setTimeout(() => { button.textContent = previous; }, 1400);
+        } catch (_) {
+          const range = document.createRange();
+          range.selectNodeContents(target);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          button.textContent = 'Select';
+        }
+      });
+    });
+  </script>
 </body>
 </html>
