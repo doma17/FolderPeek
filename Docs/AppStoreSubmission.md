@@ -67,7 +67,7 @@ Expected high-level flow:
 - Public support URL and privacy policy URL if Apple requires URLs for the listing. The app does not collect data, but App Store Connect metadata still needs completed privacy declarations.
 - Final screenshots captured from the release build.
 - App Review contact information and any required compliance/tax/banking forms.
-- Final decision on whether v0.2 is App Store-only, direct-download-only, or both.
+- Final decision on whether v0.3 is App Store-only, direct-download-only, or both.
 
 ## Review notes draft
 
@@ -89,11 +89,11 @@ The app has no login, no server backend, no purchases, no analytics, no tracking
 - Screenshot specifications: https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications
 
 
-## App Store Connect action plan for 0.2
+## App Store Connect action plan for 0.3
 
 ### Already prepared in this repository
 
-- App version set to `0.2` for the host app and Quick Look extension.
+- App version set to `0.3` for the host app and Quick Look extension.
 - App icon resources are generated and bundled.
 - App Sandbox entitlements are enabled for the host app and extension.
 - Local release-candidate build and install scripts are available.
@@ -120,9 +120,9 @@ The app has no login, no server backend, no purchases, no analytics, no tracking
 5. Complete App Privacy answers. Current product posture: no data collection, no tracking, no analytics, no account system, no ads, no remote service.
 6. Capture and upload required Mac screenshots. Apple currently accepts required Mac screenshots at 16:10 sizes such as 1280×800, 1440×900, 2560×1600, or 2880×1800.
 7. Archive the app in Xcode using App Store distribution signing and upload the build to App Store Connect.
-8. Select the uploaded 0.2 build, fill review notes, and submit for App Review.
+8. Select the uploaded 0.3 build, fill review notes, and submit for App Review.
 
-### Review notes for 0.2
+### Review notes for 0.3
 
 FolderPeek is a macOS menu bar app with a Quick Look preview extension. To test it:
 

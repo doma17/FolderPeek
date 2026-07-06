@@ -4,7 +4,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-release_version="${FOLDERPEEK_RELEASE_VERSION:-0.2}"
+release_version="${FOLDERPEEK_RELEASE_VERSION:-0.3}"
 release_build="${FOLDERPEEK_RELEASE_BUILD:-1}"
 release_name="FolderPeek-${release_version}"
 manual_out="$root/.build/manual"

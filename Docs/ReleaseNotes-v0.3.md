@@ -1,8 +1,8 @@
-# FolderPeek 0.2 Release Notes
+# FolderPeek 0.3 Release Notes
 
 Release date: 2026-07-06
 
-FolderPeek 0.2 is the first early-tester direct-distribution build. It is intended for users who are comfortable installing a macOS app outside the App Store while Developer ID signing and notarization are still pending.
+FolderPeek 0.3 is the current early-tester direct-distribution build. It is intended for users who are comfortable installing a macOS app outside the App Store while Developer ID signing and notarization are still pending.
 
 ## Highlights
 
@@ -20,7 +20,7 @@ FolderPeek 0.2 is the first early-tester direct-distribution build. It is intend
 
 Download these two files from the GitHub Release:
 
-- `FolderPeek-0.2.zip`
+- `FolderPeek-0.3.zip`
 - `SHA256SUMS.txt`
 
 Then verify the download if desired:
@@ -29,7 +29,7 @@ Then verify the download if desired:
 shasum -a 256 -c SHA256SUMS.txt
 ```
 
-Unzip `FolderPeek-0.2.zip`, move `FolderPeek.app` to `/Applications`, launch it once, then enable the Quick Look extension in macOS System Settings if needed.
+Unzip `FolderPeek-0.3.zip`, move `FolderPeek.app` to `/Applications`, launch it once, then enable the Quick Look extension in macOS System Settings if needed.
 
 ## Known limitations
 

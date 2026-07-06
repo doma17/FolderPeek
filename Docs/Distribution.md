@@ -1,6 +1,6 @@
 # Distribution
 
-FolderPeek 0.2 is prepared for App Store-free distribution through GitHub Releases first, with a personal Homebrew tap as the power-user install path.
+FolderPeek 0.3 is prepared for App Store-free distribution through GitHub Releases first, with a personal Homebrew tap as the power-user install path.
 
 This channel is intentionally early-tester oriented until Developer ID signing and notarization are in place.
 
@@ -8,7 +8,7 @@ This channel is intentionally early-tester oriented until Developer ID signing a
 
 The repository currently contains the local packaging script, distribution documentation, and a repo-local Homebrew cask template. It is not an operationally proven public channel until all of these external checks pass for an actual GitHub Release:
 
-1. The `v0.2` release exists on GitHub with `FolderPeek-0.2.zip` and `SHA256SUMS.txt` uploaded.
+1. The `v0.3` release exists on GitHub with `FolderPeek-0.3.zip` and `SHA256SUMS.txt` uploaded.
 2. The release asset can be downloaded into a clean temporary directory.
 3. `shasum -a 256 -c SHA256SUMS.txt` passes against the downloaded asset.
 4. The personal tap contains the cask and `brew audit --cask --new folderpeek` passes from that tap context.
@@ -18,15 +18,15 @@ Until those checks pass, treat the Homebrew cask as a template and the direct-do
 
 ## Release identity
 
-- Version: 0.2
-- Git tag: v0.2
-- Artifact: FolderPeek-0.2.zip
+- Version: 0.3
+- Git tag: v0.3
+- Artifact: FolderPeek-0.3.zip
 - Checksum file: SHA256SUMS.txt
-- Current SHA-256: `f3dea655e9d21cc238018249bf5c03adbada76f92bef51c392c51c8a9a93c910`
+- Current SHA-256: `a7be42a9eadb137d0491a6b38b61e3daefa7124c7c47f02c13c11e54b4e6e0e3`
 
 The host app and Quick Look extension must both use:
 
-- `CFBundleShortVersionString=0.2`
+- `CFBundleShortVersionString=0.3`
 - `CFBundleVersion=1`
 
 ## Build the release artifact
@@ -40,20 +40,20 @@ From the repository root:
 The script writes:
 
 ```text
-.build/release/FolderPeek-0.2.zip
+.build/release/FolderPeek-0.3.zip
 .build/release/SHA256SUMS.txt
 ```
 
-The script fails if the app version/build do not match 0.2/1, if the archive has anything other than `FolderPeek.app` at the top level, if the Quick Look extension is missing after unzip, if evidence-only markers are present, or if code signing verification fails.
+The script fails if the app version/build do not match 0.3/1, if the archive has anything other than `FolderPeek.app` at the top level, if the Quick Look extension is missing after unzip, if evidence-only markers are present, or if code signing verification fails.
 
 ## GitHub Release flow
 
 1. Run the local verification set.
 2. Run `./Scripts/package_release.sh`.
-3. Create tag `v0.2` from the release commit.
-4. Create a GitHub Release for `v0.2`.
+3. Create tag `v0.3` from the release commit.
+4. Create a GitHub Release for `v0.3`.
 5. Upload:
-   - `FolderPeek-0.2.zip`
+   - `FolderPeek-0.3.zip`
    - `SHA256SUMS.txt`
 6. Download both files from the release page into a clean temporary directory.
 7. Verify the checksum:
@@ -66,7 +66,7 @@ External release creation and upload are intentionally manual until credentials 
 
 ## Direct install instructions
 
-1. Download `FolderPeek-0.2.zip` from the GitHub Release.
+1. Download `FolderPeek-0.3.zip` from the GitHub Release.
 2. Unzip it.
 3. Move `FolderPeek.app` to `/Applications`.
 4. Launch FolderPeek once.

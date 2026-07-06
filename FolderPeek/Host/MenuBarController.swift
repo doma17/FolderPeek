@@ -101,7 +101,7 @@ final class FolderPeekMenuBarController: NSObject {
     @objc private func showAbout() {
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: "FolderPeek",
-            .applicationVersion: "0.2"
+            .applicationVersion: "0.3"
         ])
         NSApp.activate(ignoringOtherApps: true)
     }
