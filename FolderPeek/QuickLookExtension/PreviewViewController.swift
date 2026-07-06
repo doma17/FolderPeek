@@ -105,9 +105,9 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         stack.alignment = .leading
         stack.spacing = 4
 
-        let title = label(model.folderName, font: .boldSystemFont(ofSize: 24), color: .labelColor)
-        let subtitle = label(model.summary, font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
-        let freshness = label("Snapshot preview · generated at \(dateFormatter.string(from: model.generatedAt))", font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
+        let title = label(model.folderName, font: PreviewTypography.title, color: .labelColor)
+        let subtitle = label(model.summary, font: PreviewTypography.body, color: .secondaryLabelColor)
+        let freshness = label("Snapshot preview · generated at \(dateFormatter.string(from: model.generatedAt))", font: PreviewTypography.caption, color: .tertiaryLabelColor)
 
         stack.addArrangedSubview(title)
         stack.addArrangedSubview(subtitle)
@@ -143,7 +143,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
 
         let candidates = model.thumbnailCandidates.prefix(8)
         if candidates.isEmpty {
-            thumbnailStack.addArrangedSubview(label("No quick visual thumbnails available.", font: .systemFont(ofSize: 12), color: .tertiaryLabelColor))
+            thumbnailStack.addArrangedSubview(label("No quick visual thumbnails available.", font: PreviewTypography.notice, color: .tertiaryLabelColor))
         } else {
             candidates.forEach { candidate in
                 thumbnailStack.addArrangedSubview(thumbnailPlaceholder(for: candidate))
@@ -158,7 +158,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         itemListStack.alignment = .leading
         itemListStack.spacing = 5
 
-        itemListStack.addArrangedSubview(label("Sampled contents", font: .boldSystemFont(ofSize: 13), color: .labelColor))
+        itemListStack.addArrangedSubview(label("Sampled contents", font: PreviewTypography.sectionTitle, color: .labelColor))
         model.items.prefix(14).forEach { item in
             itemListStack.addArrangedSubview(itemRow(item))
         }
@@ -176,10 +176,10 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         icon.setFrameSize(NSSize(width: 18, height: 18))
         stack.addArrangedSubview(icon)
 
-        let name = label(item.name, font: .systemFont(ofSize: 13), color: .labelColor)
+        let name = label(item.name, font: PreviewTypography.body, color: .labelColor)
         name.lineBreakMode = .byTruncatingMiddle
         stack.addArrangedSubview(name)
-        stack.addArrangedSubview(label(item.typeGroup.rawValue, font: .systemFont(ofSize: 11), color: .secondaryLabelColor))
+        stack.addArrangedSubview(label(item.typeGroup.rawValue, font: PreviewTypography.caption, color: .secondaryLabelColor))
         return stack
     }
 
@@ -195,7 +195,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         imageView.widthAnchor.constraint(equalToConstant: 52).isActive = true
         imageView.heightAnchor.constraint(equalToConstant: 52).isActive = true
 
-        let caption = label(candidate.name, font: .systemFont(ofSize: 10), color: .secondaryLabelColor)
+        let caption = label(candidate.name, font: PreviewTypography.micro, color: .secondaryLabelColor)
         caption.maximumNumberOfLines = 2
         caption.alignment = .center
         caption.lineBreakMode = .byTruncatingMiddle
@@ -218,7 +218,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
     }
 
     private func addInlineNotice(_ text: String) {
-        let notice = label(text, font: .systemFont(ofSize: 12), color: .systemOrange)
+        let notice = label(text, font: PreviewTypography.notice, color: .systemOrange)
         rootStack.addArrangedSubview(notice)
     }
 
@@ -227,13 +227,13 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
-        stack.addArrangedSubview(label(title, font: .boldSystemFont(ofSize: 15), color: .labelColor))
-        stack.addArrangedSubview(label(message, font: .systemFont(ofSize: 13), color: .secondaryLabelColor))
+        stack.addArrangedSubview(label(title, font: PreviewTypography.stateTitle, color: .labelColor))
+        stack.addArrangedSubview(label(message, font: PreviewTypography.body, color: .secondaryLabelColor))
         rootStack.addArrangedSubview(stack)
     }
 
     private func chip(_ text: String) -> NSView {
-        let field = label(text, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
+        let field = label(text, font: PreviewTypography.chip, color: .secondaryLabelColor)
         field.wantsLayer = true
         field.layer?.cornerRadius = 8
         field.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
@@ -255,6 +255,21 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             view.removeFromSuperview()
         }
     }
+}
+
+
+private enum PreviewTypography {
+    // NSFont.systemFont resolves to San Francisco on macOS. Centralizing the
+    // calls makes the Quick Look AppKit preview follow the same SF typography
+    // contract as the SwiftUI host UI.
+    static let title = NSFont.systemFont(ofSize: 24, weight: .bold)
+    static let stateTitle = NSFont.systemFont(ofSize: 15, weight: .bold)
+    static let sectionTitle = NSFont.systemFont(ofSize: 13, weight: .bold)
+    static let body = NSFont.systemFont(ofSize: 13, weight: .regular)
+    static let notice = NSFont.systemFont(ofSize: 12, weight: .regular)
+    static let caption = NSFont.systemFont(ofSize: 11, weight: .regular)
+    static let chip = NSFont.systemFont(ofSize: 11, weight: .medium)
+    static let micro = NSFont.systemFont(ofSize: 10, weight: .regular)
 }
 
 private extension String {

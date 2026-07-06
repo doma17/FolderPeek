@@ -110,13 +110,15 @@ public struct FolderPeekHTMLRenderer: Sendable {
               --accent: #0a84ff;
               --warning: #b45309;
               font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+              --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+              --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
             }
             * { box-sizing: border-box; }
-            body { margin: 0; min-height: 100vh; padding: 22px; background: var(--bg); color: var(--text); }
+            body { margin: 0; min-height: 100vh; padding: 22px; background: var(--bg); color: var(--text); font-family: var(--font-text); }
             .shell { max-width: 760px; margin: 0 auto; }
             header { padding: 2px 0 14px; border-bottom: 1px solid var(--hairline); }
             .eyebrow { margin: 0 0 5px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-            h1 { margin: 0; font-size: 26px; line-height: 1.14; font-weight: 650; letter-spacing: -.02em; overflow-wrap: anywhere; }
+            h1 { margin: 0; font-family: var(--font-display); font-size: 26px; line-height: 1.14; font-weight: 650; letter-spacing: -.02em; overflow-wrap: anywhere; }
             .summary { color: var(--muted); margin: 7px 0 0; font-size: 13px; line-height: 1.35; }
             .chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 0; }
             .chip { border: 1px solid var(--hairline); border-radius: 999px; background: var(--panel); padding: 4px 9px; font-size: 11px; color: var(--muted); }
@@ -127,7 +129,7 @@ public struct FolderPeekHTMLRenderer: Sendable {
             .notice { margin: 12px 0 0; border-left: 3px solid var(--warning); padding: 7px 10px; color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, Canvas); border-radius: 8px; font-size: 12px; line-height: 1.35; }
             main { display: grid; gap: 12px; margin-top: 14px; }
             .panel, .state-card { border: 1px solid var(--hairline); border-radius: 14px; background: var(--panel); padding: 14px; }
-            h2 { margin: 0 0 10px; font-size: 13px; font-weight: 650; }
+            h2 { margin: 0 0 10px; font-family: var(--font-display); font-size: 13px; font-weight: 650; }
             .thumbs { display: flex; gap: 10px; overflow: hidden; margin: 0; }
             .thumb { width: 76px; margin: 0; text-align: center; }
             .thumb-icon { width: 54px; height: 54px; margin: 0 auto 6px; border-radius: 13px; display: grid; place-items: center; background: var(--panel-strong); border: 1px solid var(--hairline); font-size: 12px; font-weight: 700; color: var(--accent); }

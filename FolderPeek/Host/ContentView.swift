@@ -81,11 +81,11 @@ struct FolderPeekHelpView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("FolderPeek")
-                    .font(.system(size: 21, weight: .semibold, design: .default))
+                    .font(DesignTypography.title)
                     .tracking(-0.2)
                     .foregroundStyle(DesignColor.ink)
                 Text("Preview folders and archives from Finder Quick Look.")
-                    .font(.system(size: 13, weight: .regular))
+                    .font(DesignTypography.subheadline)
                     .foregroundStyle(DesignColor.muted)
             }
 
@@ -104,11 +104,11 @@ struct FolderPeekHelpView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(selectedTab.windowTitle)
-                    .font(.system(size: 34, weight: .semibold))
+                    .font(DesignTypography.display)
                     .tracking(-0.37)
                     .foregroundStyle(DesignColor.ink)
                 Text(heroSubtitle)
-                    .font(.system(size: 17, weight: .regular))
+                    .font(DesignTypography.body)
                     .tracking(-0.2)
                     .lineSpacing(3)
                     .foregroundStyle(DesignColor.body)
@@ -137,9 +137,9 @@ private struct PillTabPicker: View {
                 } label: {
                     HStack(spacing: 7) {
                         Image(systemName: tab.symbolName)
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(DesignTypography.badge)
                         Text(tab.title)
-                            .font(.system(size: 14, weight: .regular))
+                            .font(DesignTypography.tab)
                     }
                     .foregroundStyle(selectedTab == tab ? Color.white : DesignColor.primary)
                     .padding(.horizontal, 15)
@@ -228,7 +228,7 @@ private struct SetupCheckPanel: View {
 
                     DesignCard(title: "Contact") {
                         Link("rovin1273@gmail.com", destination: URL(string: "mailto:rovin1273@gmail.com")!)
-                            .font(.system(size: 17, weight: .regular))
+                            .font(DesignTypography.body)
                             .foregroundStyle(DesignColor.primary)
                     }
                 }
@@ -249,7 +249,7 @@ private struct DesignCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(DesignTypography.bodyStrong)
                 .tracking(-0.24)
                 .foregroundStyle(DesignColor.ink)
             VStack(alignment: .leading, spacing: 10) {
@@ -320,13 +320,13 @@ private struct NumberedStep: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(number)")
-                .font(.system(size: 13, weight: .semibold))
+                .font(DesignTypography.badge)
                 .foregroundStyle(Color.white)
                 .frame(width: 28, height: 28)
                 .background(Circle().fill(DesignColor.primary))
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(DesignTypography.bodyStrong)
                     .tracking(-0.2)
                     .foregroundStyle(DesignColor.ink)
                 Text(detail)
@@ -358,7 +358,7 @@ private struct Bullet: View {
 private struct PrimaryPillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 17, weight: .regular))
+            .font(DesignTypography.body)
             .foregroundStyle(Color.white)
             .padding(.horizontal, 22)
             .frame(height: 44)
@@ -366,6 +366,20 @@ private struct PrimaryPillButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
+}
+
+
+private enum DesignTypography {
+    // San Francisco is the native macOS system typeface. Using explicit
+    // system tokens keeps FolderPeek on SF Pro Display/Text without bundling
+    // private font files.
+    static let display = Font.system(size: 34, weight: .semibold, design: .default)
+    static let title = Font.system(size: 21, weight: .semibold, design: .default)
+    static let bodyStrong = Font.system(size: 17, weight: .semibold, design: .default)
+    static let body = Font.system(size: 17, weight: .regular, design: .default)
+    static let tab = Font.system(size: 14, weight: .regular, design: .default)
+    static let subheadline = Font.system(size: 13, weight: .regular, design: .default)
+    static let badge = Font.system(size: 13, weight: .semibold, design: .default)
 }
 
 private enum DesignColor {
@@ -380,7 +394,7 @@ private enum DesignColor {
 private extension Text {
     func bodyText() -> some View {
         self
-            .font(.system(size: 17, weight: .regular))
+            .font(DesignTypography.body)
             .tracking(-0.2)
             .lineSpacing(3)
             .foregroundStyle(DesignColor.body)

@@ -146,3 +146,31 @@ if ! grep -F 'FolderPeekMainMenu.make()' FolderPeek/Host/FolderPeekApp.swift >/d
   echo "FAILED: host app must install an app/window menu so Command-W and Command-Q work from windows" >&2
   exit 1
 fi
+
+# Typography and icon design checks.
+if ! grep -F 'private enum DesignTypography' FolderPeek/Host/ContentView.swift >/dev/null; then
+  echo "FAILED: SwiftUI host text must use centralized San Francisco typography tokens" >&2
+  exit 1
+fi
+if ! grep -F 'private enum PreviewTypography' FolderPeek/QuickLookExtension/PreviewViewController.swift >/dev/null; then
+  echo "FAILED: AppKit Quick Look preview text must use centralized San Francisco typography tokens" >&2
+  exit 1
+fi
+if ! grep -F '"SF Pro Display"' FolderPeek/Shared/PreviewHTMLRenderer.swift >/dev/null || ! grep -F '"SF Pro Text"' FolderPeek/Shared/PreviewHTMLRenderer.swift >/dev/null; then
+  echo "FAILED: HTML Quick Look renderer must declare SF Pro Display/Text font stacks" >&2
+  exit 1
+fi
+if ! grep -F 'systemSymbolName: "folder"' FolderPeek/Host/MenuBarController.swift >/dev/null; then
+  echo "FAILED: menu bar status icon must stay SF Symbols-based" >&2
+  exit 1
+fi
+if ! grep -F 'LiquidGlass-Lens' Assets/AppIcon/FolderPeekAppIcon.svg >/dev/null || ! grep -F 'SFSymbolsStyle-Folder' Assets/AppIcon/FolderPeekAppIcon.svg >/dev/null; then
+  echo "FAILED: app icon SVG must preserve Liquid Glass and SF Symbols-style folder layers" >&2
+  exit 1
+fi
+if ! test -s Assets/AppIcon/IconComposer.md; then
+  echo "FAILED: app icon must include Icon Composer source notes" >&2
+  exit 1
+fi
+
+echo "FolderPeek M0 static checks passed"
