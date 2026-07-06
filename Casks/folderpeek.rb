@@ -11,6 +11,18 @@ cask "folderpeek" do
 
   app "FolderPeek.app"
 
+  postflight do
+    app_path = "#{appdir}/FolderPeek.app"
+    appex_path = "#{app_path}/Contents/PlugIns/FolderPeekPreview.appex"
+
+    system_command "/usr/bin/pluginkit", args: ["-r", app_path], must_succeed: false
+    system_command "/usr/bin/pluginkit", args: ["-r", appex_path], must_succeed: false
+    system_command "/usr/bin/pluginkit", args: ["-a", app_path], must_succeed: false
+    system_command "/usr/bin/pluginkit", args: ["-a", appex_path], must_succeed: false
+    system_command "/usr/bin/qlmanage", args: ["-r"], must_succeed: false
+    system_command "/usr/bin/qlmanage", args: ["-r", "cache"], must_succeed: false
+  end
+
   uninstall quit: "com.folderpeek.app"
 
   zap trash: [
