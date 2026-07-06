@@ -19,8 +19,10 @@ cask "folderpeek" do
     system_command "/usr/bin/pluginkit", args: ["-r", appex_path], must_succeed: false
     system_command "/usr/bin/pluginkit", args: ["-a", app_path], must_succeed: false
     system_command "/usr/bin/pluginkit", args: ["-a", appex_path], must_succeed: false
+    sleep 1
     system_command "/usr/bin/qlmanage", args: ["-r"], must_succeed: false
     system_command "/usr/bin/qlmanage", args: ["-r", "cache"], must_succeed: false
+    system_command "/usr/bin/pluginkit", args: ["-a", appex_path], must_succeed: false
   end
 
   uninstall quit: "com.folderpeek.app"
